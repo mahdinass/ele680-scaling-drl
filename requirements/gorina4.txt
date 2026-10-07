@@ -1,0 +1,6 @@
+-r base.txt
+
+# Official PyTorch CUDA 12.1 wheel index (needed for the +cu121 local version).
+# PyPI stays the primary index for everything else.
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.5.1+cu121
