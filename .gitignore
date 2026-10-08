@@ -9,3 +9,5 @@ runs/
 checkpoints/
 *.pt
 *.pth
+
+results/

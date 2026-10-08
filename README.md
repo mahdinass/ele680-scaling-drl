@@ -34,3 +34,71 @@ python -c "import gymnasium as gym; e = gym.make('HalfCheetah-v5'); e.reset(seed
 ```
 
 Expected: `2.5.1+cu121 True` and `ok`.
+
+### Git on Gorina4
+
+Perform Git operations from a **fresh Gorina4 shell before loading the UiS
+Miniconda environment or activating Conda**.
+
+The UiS `miniconda3-py312` environment can alter shared-library resolution and
+cause system Git/SSH to fail with an OpenSSL version mismatch, for example:
+
+```text
+OpenSSL version mismatch. Built against 30000020, you have 30300010
+```
+
+### Activating the project environment
+
+Every new Gorina4 shell:
+
+```bash
+uenv miniconda3-py312
+conda activate /bhome/u273406/conda-envs/ele680
+```
+
+## Running the tests
+
+From the repository root, with the project environment active (the suite includes a short real `HalfCheetah-v5` run and CUDA smoke tests, and should take well under a minute):
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m unittest discover -s tests -v
+```
+
+## Running an experiment
+
+Experiments are launched from a JSON config plus optional overrides:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json \
+    --seed 0 --device cuda --output-dir results
+```
+
+Overridable flags: `--seed`, `--device`, `--total-steps`, `--output-dir`, `--run-id` (all other settings come from the config file). `CUDA_VISIBLE_DEVICES=0` selects physical GPU 0, our assigned GPU; `--device cuda` then means "that GPU", and the code never hardcodes a GPU index. To keep a console log, redirect output yourself, e.g. `... 2>&1 | tee train.log`.
+
+> **Warning:** `configs/baseline.json` is the full **scientific baseline** (1,000,000 steps, 1,000,000-transition replay buffer, evaluations every 25,000 steps). Do not launch it by accident. For a quick check of the launcher use a tiny run, for example:
+>
+> ```bash
+> CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json \
+>     --total-steps 300 --output-dir /tmp/ele680_smoke --run-id smoke
+> ```
+>
+> (With the baseline config this still performs the final 10-episode evaluation, i.e. 10 x 1000 environment steps.)
+
+### Where results are written
+
+Each run gets its own directory `results/<run_id>/` (the default run id is `<env>_seed<seed>_<UTC timestamp>_<4 hex>`; an existing directory is never overwritten). `results/` is git-ignored.
+
+| File | Content |
+|---|---|
+| `config.json` | the full config used (with the resolved `run_id`) |
+| `metadata.json` | run id, status, start/end time, runtime, git commit (+ dirty flag), Python/PyTorch/CUDA/Gymnasium/MuJoCo versions, GPU name, env id, seed, device, config, parameter counts, checkpoint path, final evaluation |
+| `status.json` | quick look: `running` / `completed` / `failed` (+ failure type and message) |
+| `train_metrics.csv` | every `log_interval` steps: losses, alpha, mean abs Q, actor/critic gradient norms, elapsed time, steps per second |
+| `episode_metrics.csv` | one row per finished training episode: return and length |
+| `eval_metrics.csv` | one row per evaluation (`periodic` / `final`): number of episodes, mean, std, per-episode returns |
+| `checkpoint.pt` | latest checkpoint (networks, targets, optimizers, `log_alpha`, step, config, seed) |
+| `tensorboard/` | TensorBoard event files (convenience only) |
+
+The CSV/JSON files are the source of truth; TensorBoard is only a viewer (`tensorboard --logdir results`). All `step` columns mean "environment steps completed". Actor columns in `train_metrics.csv` are blank on rows where no actor update happened.
+
+Checkpoints do **not** include the replay buffer or RNG states, so they are for inspection/evaluation, not exact training resumption (yet).

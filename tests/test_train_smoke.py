@@ -20,6 +20,7 @@ def tiny_config(**overrides) -> TrainConfig:
         target_network_frequency=1,
         eval_interval=0,
         eval_episodes=1,
+        final_eval_episodes=0,
     )
     cfg.update(overrides)
     return TrainConfig(**cfg)

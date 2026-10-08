@@ -27,6 +27,13 @@ def soft_update(target: nn.Module, source: nn.Module, tau: float) -> None:
         t.copy_(tau * s + (1.0 - tau) * t)
 
 
+@torch.no_grad()
+def grad_norm(parameters) -> float:
+    """Global L2 norm of the gradients of `parameters` (no clipping)."""
+    norms = [p.grad.norm() for p in parameters if p.grad is not None]
+    return torch.stack(norms).norm().item() if norms else 0.0
+
+
 class SACAgent:
     """Holds the SAC networks, optimizers and entropy temperature.
 
@@ -68,6 +75,9 @@ class SACAgent:
         self.critic_optimizer = Adam([*self.qf1.parameters(), *self.qf2.parameters()], lr=q_lr)
         self.alpha_optimizer = Adam([self.log_alpha], lr=q_lr)
 
+        # Filled by update methods when called with diagnostics=True.
+        self.diagnostics: dict[str, float] = {}
+
     @property
     def alpha(self) -> torch.Tensor:
         """Current entropy coefficient (no gradient)."""
@@ -98,18 +108,30 @@ class SACAgent:
     def alpha_loss(self, log_pi: torch.Tensor) -> torch.Tensor:
         return (-self.log_alpha.exp() * (log_pi.detach() + self.target_entropy)).mean()
 
-    def update_critic(self, batch: Batch) -> float:
+    def update_critic(self, batch: Batch, diagnostics: bool = False) -> float:
+        """One critic step; returns the loss. With `diagnostics=True` also fills
+        `self.diagnostics` with critic_grad_norm and q_mean_abs (mean |Q1|, |Q2|).
+        Diagnostics only read values; they do not change the update."""
         loss = self.critic_loss(batch)
         self.critic_optimizer.zero_grad()
         loss.backward()
+        if diagnostics:
+            self.diagnostics["critic_grad_norm"] = grad_norm([*self.qf1.parameters(), *self.qf2.parameters()])
+            with torch.no_grad():
+                q1 = self.qf1(batch.obs, batch.actions).abs().mean()
+                q2 = self.qf2(batch.obs, batch.actions).abs().mean()
+            self.diagnostics["q_mean_abs"] = (0.5 * (q1 + q2)).item()
         self.critic_optimizer.step()
         return loss.item()
 
-    def update_actor_and_alpha(self, batch: Batch) -> tuple[float, float]:
-        """One actor step and one alpha step. Returns (actor_loss, alpha_loss)."""
+    def update_actor_and_alpha(self, batch: Batch, diagnostics: bool = False) -> tuple[float, float]:
+        """One actor step and one alpha step. Returns (actor_loss, alpha_loss).
+        With `diagnostics=True` also fills `self.diagnostics["actor_grad_norm"]`."""
         actor_loss, _ = self.actor_loss(batch)
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        if diagnostics:
+            self.diagnostics["actor_grad_norm"] = grad_norm(self.actor.parameters())
         self.actor_optimizer.step()
 
         # Alpha uses a fresh log_pi from the just-updated policy (no gradient).
