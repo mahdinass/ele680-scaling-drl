@@ -56,6 +56,11 @@ uenv miniconda3-py312
 conda activate /bhome/u273406/conda-envs/ele680
 ```
 
+### Experiment infrastructure policy
+
+The canonical rules for reproducible ELE680 experiments are documented in
+[`docs/EXPERIMENT_INFRASTRUCTURE_POLICY.md`](docs/EXPERIMENT_INFRASTRUCTURE_POLICY.md).
+
 ## Running the tests
 
 From the repository root, with the project environment active (the suite includes a short real `HalfCheetah-v5` run and CUDA smoke tests, and should take well under a minute):
