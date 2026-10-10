@@ -1,0 +1,83 @@
+{
+  "run_id": "BASELINE_1M_seed1_20261009",
+  "status": "completed",
+  "start_time": "2026-10-09T06:56:02+00:00",
+  "end_time": "2026-10-09T12:01:04+00:00",
+  "runtime_seconds": 18301.264,
+  "steps_completed": 1000000,
+  "failure_type": null,
+  "failure_message": null,
+  "env_id": "HalfCheetah-v5",
+  "seed": 1,
+  "device": "cuda",
+  "run_dir": "results/BASELINE_1M_seed1_20261009",
+  "checkpoint_path": "results/BASELINE_1M_seed1_20261009/checkpoint.pt",
+  "config": {
+    "env_id": "HalfCheetah-v5",
+    "seed": 1,
+    "device": "cuda",
+    "total_steps": 1000000,
+    "buffer_size": 1000000,
+    "batch_size": 256,
+    "learning_starts": 5000,
+    "policy_frequency": 2,
+    "target_network_frequency": 1,
+    "gamma": 0.99,
+    "tau": 0.005,
+    "policy_lr": 0.0003,
+    "q_lr": 0.001,
+    "eval_interval": 25000,
+    "eval_episodes": 5,
+    "final_eval_episodes": 10,
+    "output_dir": "results",
+    "run_id": "BASELINE_1M_seed1_20261009",
+    "log_interval": 1000,
+    "checkpoint_interval": 100000,
+    "tensorboard": true
+  },
+  "parameter_counts": {
+    "actor": 73484,
+    "q1": 72193,
+    "q2": 72193,
+    "total": 217870
+  },
+  "final_eval": {
+    "step": 1000000,
+    "num_episodes": 10,
+    "mean_return": 11335.909955033207,
+    "std_return": 66.36485632838668,
+    "returns": [
+      11303.943308579479,
+      11328.715584075668,
+      11297.81313642375,
+      11272.411892805958,
+      11242.04413311762,
+      11279.51945272624,
+      11377.164799399741,
+      11382.532258426818,
+      11459.70059613854,
+      11415.254388638226
+    ]
+  },
+  "git_commit": "1a9f2405b5fdb9cffa379b72f569a0a3a01515e4",
+  "git_dirty": false,
+  "python_version": "3.12.15",
+  "python_executable": "/bhome/u273406/conda-envs/ele680/bin/python",
+  "torch_version": "2.5.1+cu121",
+  "torch_cuda_runtime": "12.1",
+  "cuda_available": true,
+  "cuda_visible_devices": "0",
+  "gpu_name": "Tesla P100-PCIE-12GB",
+  "numpy_version": "1.26.4",
+  "gymnasium_version": "1.1.1",
+  "mujoco_version": "3.15.0",
+  "tensorboard_version": "2.18.0",
+  "hostname": "gorina4",
+  "tensorboard_enabled": true,
+  "observation_shape": [
+    17
+  ],
+  "action_shape": [
+    6
+  ]
+}

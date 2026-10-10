@@ -1,0 +1,11 @@
+{
+  "run_id": "BASELINE_1M_seed0_20261009",
+  "status": "completed",
+  "start_time": "2026-10-08T22:24:14+00:00",
+  "end_time": "2026-10-09T03:41:44+00:00",
+  "runtime_seconds": 19049.963,
+  "steps_completed": 1000000,
+  "failure_type": null,
+  "failure_message": null,
+  "checkpoint_path": "results/BASELINE_1M_seed0_20261009/checkpoint.pt"
+}
