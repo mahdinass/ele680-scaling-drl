@@ -11,21 +11,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 from gymnasium.spaces import Box
 
-HIDDEN_SIZE = 256
+HIDDEN_SIZE = 256  # default hidden width (the frozen 2x256 baseline)
 LOG_STD_MIN = -5.0
 LOG_STD_MAX = 2.0
+
+
+def _check_width(hidden_width: int) -> int:
+    if hidden_width < 1:
+        raise ValueError(f"hidden_width must be a positive integer, got {hidden_width}")
+    return hidden_width
 
 
 class QNetwork(nn.Module):
     """One SAC Q-function Q(s, a) -> scalar. Q1 and Q2 are separate instances."""
 
-    def __init__(self, observation_space: Box, action_space: Box) -> None:
+    def __init__(self, observation_space: Box, action_space: Box, hidden_width: int = HIDDEN_SIZE) -> None:
         super().__init__()
+        hidden_width = _check_width(hidden_width)
         obs_dim = int(np.prod(observation_space.shape))
         act_dim = int(np.prod(action_space.shape))
-        self.fc1 = nn.Linear(obs_dim + act_dim, HIDDEN_SIZE)
-        self.fc2 = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
-        self.fc3 = nn.Linear(HIDDEN_SIZE, 1)
+        self.fc1 = nn.Linear(obs_dim + act_dim, hidden_width)
+        self.fc2 = nn.Linear(hidden_width, hidden_width)
+        self.fc3 = nn.Linear(hidden_width, 1)
 
     def forward(self, obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         """obs: (B, obs_dim), action: (B, act_dim) -> Q-values (B, 1)."""
@@ -38,14 +45,15 @@ class QNetwork(nn.Module):
 class Actor(nn.Module):
     """Squashed-Gaussian SAC policy for bounded continuous (Box) actions."""
 
-    def __init__(self, observation_space: Box, action_space: Box) -> None:
+    def __init__(self, observation_space: Box, action_space: Box, hidden_width: int = HIDDEN_SIZE) -> None:
         super().__init__()
+        hidden_width = _check_width(hidden_width)
         obs_dim = int(np.prod(observation_space.shape))
         act_dim = int(np.prod(action_space.shape))
-        self.fc1 = nn.Linear(obs_dim, HIDDEN_SIZE)
-        self.fc2 = nn.Linear(HIDDEN_SIZE, HIDDEN_SIZE)
-        self.fc_mean = nn.Linear(HIDDEN_SIZE, act_dim)
-        self.fc_logstd = nn.Linear(HIDDEN_SIZE, act_dim)
+        self.fc1 = nn.Linear(obs_dim, hidden_width)
+        self.fc2 = nn.Linear(hidden_width, hidden_width)
+        self.fc_mean = nn.Linear(hidden_width, act_dim)
+        self.fc_logstd = nn.Linear(hidden_width, act_dim)
 
         # Map tanh output in (-1, 1) onto [low, high]: a = tanh(u) * scale + bias.
         # Buffers follow .to(device) but are not trained.

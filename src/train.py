@@ -20,6 +20,7 @@ import torch
 from src.checkpoint import save_checkpoint
 from src.envs import EVAL_SEED_OFFSET, make_env, set_global_seed
 from src.evaluate import EvalResult, evaluate
+from src.networks import HIDDEN_SIZE
 from src.replay_buffer import ReplayBuffer
 from src.run_logger import RunLogger
 from src.run_metadata import count_parameters
@@ -43,6 +44,7 @@ class TrainConfig:
     tau: float = 0.005
     policy_lr: float = 3e-4
     q_lr: float = 1e-3
+    hidden_width: int = HIDDEN_SIZE  # width of both hidden layers of actor and critics (2 layers)
     eval_interval: int = 25_000  # project protocol; 0 disables periodic evaluation
     eval_episodes: int = 5  # project protocol
     final_eval_episodes: int = 10  # project protocol; 0 disables the final evaluation
@@ -106,7 +108,8 @@ def _train(
     device = torch.device(config.device)
     obs_space, act_space = train_env.observation_space, train_env.action_space
     agent = SACAgent(
-        obs_space, act_space, device, config.gamma, config.tau, config.policy_lr, config.q_lr
+        obs_space, act_space, device, config.gamma, config.tau, config.policy_lr, config.q_lr,
+        config.hidden_width,
     )
     rb = ReplayBuffer(
         config.buffer_size,

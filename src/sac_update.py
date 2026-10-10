@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from gymnasium.spaces import Box
 from torch.optim import Adam
 
-from src.networks import Actor, QNetwork
+from src.networks import HIDDEN_SIZE, Actor, QNetwork
 from src.replay_buffer import Batch
 
 
@@ -52,14 +52,15 @@ class SACAgent:
         tau: float = 0.005,
         policy_lr: float = 3e-4,
         q_lr: float = 1e-3,
+        hidden_width: int = HIDDEN_SIZE,
     ) -> None:
         self.device = torch.device(device)
         self.gamma = gamma
         self.tau = tau
 
-        self.actor = Actor(observation_space, action_space).to(self.device)
-        self.qf1 = QNetwork(observation_space, action_space).to(self.device)
-        self.qf2 = QNetwork(observation_space, action_space).to(self.device)
+        self.actor = Actor(observation_space, action_space, hidden_width).to(self.device)
+        self.qf1 = QNetwork(observation_space, action_space, hidden_width).to(self.device)
+        self.qf2 = QNetwork(observation_space, action_space, hidden_width).to(self.device)
         # Targets start as independent copies and are never trained by an optimizer.
         self.qf1_target = copy.deepcopy(self.qf1)
         self.qf2_target = copy.deepcopy(self.qf2)
