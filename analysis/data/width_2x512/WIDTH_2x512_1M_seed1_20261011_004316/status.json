@@ -1,0 +1,11 @@
+{
+  "run_id": "WIDTH_2x512_1M_seed1_20261011_004316",
+  "status": "completed",
+  "start_time": "2026-10-10T22:43:54+00:00",
+  "end_time": "2026-10-11T03:33:15+00:00",
+  "runtime_seconds": 17361.506,
+  "steps_completed": 1000000,
+  "failure_type": null,
+  "failure_message": null,
+  "checkpoint_path": "results/WIDTH_2x512_1M_seed1_20261011_004316/checkpoint.pt"
+}

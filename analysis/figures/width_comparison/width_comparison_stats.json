@@ -1,0 +1,332 @@
+{
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "n_per_architecture": 3,
+  "sd_definition": "sample SD, ddof=1, across training seeds",
+  "final_mean_return_10ep": {
+    "2\u00d7256": {
+      "mean": 11906.250073386798,
+      "sd": 497.4473663799064,
+      "per_seed": [
+        12250.47937710342,
+        11335.909955033208,
+        12132.360888023764
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 11645.369192740172,
+      "sd": 482.2581924383165,
+      "per_seed": [
+        11552.7038222595,
+        12167.23611545362,
+        11216.1676405074
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": -260.8808806466259,
+      "percent_difference": -2.1911254932378292,
+      "pooled_sd": 489.9116484082498,
+      "cohens_d": -0.532505976320919,
+      "hedges_g": -0.4260047810567352,
+      "welch_se_of_difference": 400.01118588200217,
+      "permutation_p_two_sided": 0.6,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "periodic_mean_return_1M_5ep": {
+    "2\u00d7256": {
+      "mean": 11881.231778815985,
+      "sd": 520.0115175700871,
+      "per_seed": [
+        12263.059798033468,
+        11288.985611000497,
+        12091.64992741399
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 11663.490764652628,
+      "sd": 475.8116173289195,
+      "per_seed": [
+        11600.148889366112,
+        12167.800624002037,
+        11222.522780589736
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": -217.74101416335725,
+      "percent_difference": -1.8326468014165451,
+      "pooled_sd": 498.401782496164,
+      "cohens_d": -0.4368784820006801,
+      "hedges_g": -0.3495027856005441,
+      "welch_se_of_difference": 406.9433513364021,
+      "permutation_p_two_sided": 0.7,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "auc_mean_of_40_periodic": {
+    "2\u00d7256": {
+      "mean": 9911.510892604241,
+      "sd": 146.14599331710667,
+      "per_seed": [
+        9866.488551407214,
+        9793.173233042551,
+        10074.870893362957
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 9560.264810073111,
+      "sd": 634.1598361068624,
+      "per_seed": [
+        9343.04221258964,
+        10274.49104843241,
+        9063.261169197287
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": -351.24608253113,
+      "percent_difference": -3.5438197701343634,
+      "pooled_sd": 460.1724400122884,
+      "cohens_d": -0.7632923052100868,
+      "hedges_g": -0.6106338441680695,
+      "welch_se_of_difference": 375.7292239072026,
+      "permutation_p_two_sided": 0.4,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "late_eval_sd_750k_1M": {
+    "2\u00d7256": {
+      "mean": 320.92549285216063,
+      "sd": 65.1878577758985,
+      "per_seed": [
+        389.7817557492384,
+        260.1616803549541,
+        312.8330424522893
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 511.53698480240115,
+      "sd": 341.9876492155953,
+      "per_seed": [
+        422.49045611723426,
+        222.88073444930237,
+        889.2397638406669
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": 190.61149195024052,
+      "percent_difference": 59.39431307130491,
+      "pooled_sd": 246.17575938485479,
+      "cohens_d": 0.7742902567927137,
+      "hedges_g": 0.619432205434171,
+      "welch_se_of_difference": 201.0016658450205,
+      "permutation_p_two_sided": 0.6,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "max_drawdown_periodic": {
+    "2\u00d7256": {
+      "mean": 577.7940688191017,
+      "sd": 121.20718841893455,
+      "per_seed": [
+        536.2604670737546,
+        714.3080185506878,
+        482.8137208328626
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 1128.0319883729208,
+      "sd": 1082.7612152413312,
+      "per_seed": [
+        475.72936827927333,
+        530.4691553564771,
+        2377.897441483012
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": 550.2379195538191,
+      "percent_difference": 95.23080094581069,
+      "pooled_sd": 770.4099661074315,
+      "cohens_d": 0.7142144361578651,
+      "hedges_g": 0.571371548926292,
+      "welch_se_of_difference": 629.0371032393631,
+      "permutation_p_two_sided": 0.9,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "low_return_outlier_evals_after_500k": {
+    "2\u00d7256": {
+      "mean": 0.0,
+      "sd": 0.0,
+      "per_seed": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 0.6666666666666666,
+      "sd": 1.1547005383792517,
+      "per_seed": [
+        0.0,
+        0.0,
+        2.0
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": 0.6666666666666666,
+      "percent_difference": null,
+      "pooled_sd": 0.816496580927726,
+      "cohens_d": 0.816496580927726,
+      "hedges_g": 0.6531972647421809,
+      "welch_se_of_difference": 0.6666666666666667,
+      "permutation_p_two_sided": 1.0,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "runtime_hours": {
+    "2\u00d7256": {
+      "mean": 7.568503703703702,
+      "sd": 4.125035091294345,
+      "per_seed": [
+        5.291656388888889,
+        5.083684444444444,
+        12.330170277777777
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 4.970298611111112,
+      "sd": 0.12792607664658603,
+      "per_seed": [
+        5.04772,
+        4.822640555555556,
+        5.040535277777778
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": -2.5982050925925906,
+      "percent_difference": -34.329177791392766,
+      "pooled_sd": 2.918242586343357,
+      "cohens_d": -0.8903321145238364,
+      "hedges_g": -0.7122656916190692,
+      "welch_se_of_difference": 2.3827350940670353,
+      "permutation_p_two_sided": 0.1,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "final_cumulative_sps": {
+    "2\u00d7256": {
+      "mean": 43.24666666666667,
+      "sd": 17.96499188236202,
+      "per_seed": [
+        52.52,
+        54.68,
+        22.54
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 55.946666666666665,
+      "sd": 1.4500114942073148,
+      "per_seed": [
+        55.06,
+        57.62,
+        55.16
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": 12.699999999999996,
+      "percent_difference": 29.36642515800831,
+      "pooled_sd": 12.744478543013573,
+      "cohens_d": 0.9965099754483121,
+      "hedges_g": 0.7972079803586497,
+      "welch_se_of_difference": 10.40582315607735,
+      "permutation_p_two_sided": 0.1,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "critic_loss_spikes_10x_median": {
+    "2\u00d7256": {
+      "mean": 1.3333333333333333,
+      "sd": 1.5275252316519468,
+      "per_seed": [
+        1.0,
+        3.0,
+        0.0
+      ]
+    },
+    "2\u00d7512": {
+      "mean": 1.6666666666666667,
+      "sd": 2.8867513459481287,
+      "per_seed": [
+        0.0,
+        0.0,
+        5.0
+      ]
+    },
+    "effect_width_vs_baseline": {
+      "mean_difference": 0.3333333333333335,
+      "percent_difference": 25.00000000000001,
+      "pooled_sd": 2.309401076758503,
+      "cohens_d": 0.14433756729740652,
+      "hedges_g": 0.11547005383792522,
+      "welch_se_of_difference": 1.8856180831641265,
+      "permutation_p_two_sided": 1.0,
+      "permutation_min_attainable_p": 0.1
+    }
+  },
+  "steps_to_threshold": {
+    "5000": {
+      "2\u00d7256": [
+        75000.0,
+        75000.0,
+        75000.0
+      ],
+      "2\u00d7512": [
+        75000.0,
+        75000.0,
+        100000.0
+      ]
+    },
+    "8000": {
+      "2\u00d7256": [
+        175000.0,
+        150000.0,
+        175000.0
+      ],
+      "2\u00d7512": [
+        200000.0,
+        175000.0,
+        225000.0
+      ]
+    },
+    "10000": {
+      "2\u00d7256": [
+        375000.0,
+        350000.0,
+        350000.0
+      ],
+      "2\u00d7512": [
+        525000.0,
+        325000.0,
+        475000.0
+      ]
+    }
+  },
+  "runtime_hours_by_run": {
+    "2\u00d7256 seed 0": 5.291656388888889,
+    "2\u00d7256 seed 1": 5.083684444444444,
+    "2\u00d7256 seed 2": 12.330170277777777,
+    "2\u00d7512 seed 0": 5.04772,
+    "2\u00d7512 seed 1": 4.822640555555556,
+    "2\u00d7512 seed 2": 5.040535277777778
+  },
+  "runtime_flagged_slow_(>1.5x_median_of_six)": [
+    "2\u00d7256 seed 2"
+  ],
+  "runtime_median_excluding_flagged": {
+    "2\u00d7256": 5.187670416666666,
+    "2\u00d7512": 5.040535277777778
+  }
+}
