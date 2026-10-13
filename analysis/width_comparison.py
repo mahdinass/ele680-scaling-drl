@@ -1,4 +1,4 @@
-"""Loading, validation and statistics for the 2x256 vs 2x512 SAC width comparison.
+"""Loading, validation and statistics for the 2x256 / 2x512 / 2x1024 SAC width comparison.
 
 Pure analysis code (pandas/numpy only). Original run files are only ever read.
 Anything inconsistent raises ValidationError; nothing is silently repaired.
@@ -29,6 +29,10 @@ DEFAULT_WIDTH = 256  # frozen baseline; baseline configs omit `hidden_width`
 REQUIRED_FILES = ("config.json", "metadata.json", "status.json",
                   "eval_metrics.csv", "train_metrics.csv", "episode_metrics.csv")
 TRAIN_FINITE_COLUMNS = ("sps", "critic_loss", "alpha", "q_mean_abs", "critic_grad_norm")
+# HalfCheetah-v5 never terminates early, so a 1M-step run has exactly 1,000 training episodes.
+EPISODE_LENGTH = 1000
+N_TRAIN_EPISODES = TOTAL_STEPS // EPISODE_LENGTH
+EPISODE_COLUMNS = ("step", "elapsed_sec", "episode_return", "episode_length")
 # Config keys allowed to differ between runs/architectures in a controlled width comparison.
 CONFIG_IGNORED_ACROSS_RUNS = ("seed", "run_id")
 CONFIG_IGNORED_ACROSS_ARCHS = CONFIG_IGNORED_ACROSS_RUNS + ("hidden_width",)
@@ -56,6 +60,9 @@ SPECS = {
     "width_2x512": ArchSpec(
         "width_2x512", "2×512", DATA_ROOT / "width_2x512", "WIDTH_2x512_1M",
         "f25b3a0cb93da0a605b3dbac6254a866f83f664e", 512, 828_942),
+    "width_2x1024": ArchSpec(
+        "width_2x1024", "2×1024", DATA_ROOT / "width_2x1024", "WIDTH_2x1024_1M",
+        "e533a3c76ef069ffe37affc9a6a15ea2b1ae2e14", 1024, 3_230_734),
 }
 
 
@@ -70,6 +77,7 @@ class Run:
     final: pd.Series
     train: pd.DataFrame
     hidden_width: int
+    episodes: pd.DataFrame
 
     @property
     def final_mean_return(self) -> float:
@@ -118,6 +126,39 @@ def _check_training_steps(label: str, train: pd.DataFrame, log_interval: int) ->
         _fail(label, f"training log step spacing is irregular (expected constant {log_interval})")
     if steps[-1] < TOTAL_STEPS - log_interval:
         _fail(label, f"training log truncated: last step {int(steps[-1])} < {TOTAL_STEPS - log_interval}")
+
+
+def expected_train_steps(config: dict) -> np.ndarray:
+    """Exact step grid of train_metrics.csv: first log after learning_starts, then every log_interval."""
+    interval = int(config.get("log_interval", DEFAULT_LOG_INTERVAL))
+    first = int(config.get("learning_starts", 5000)) + interval + 1
+    return np.arange(first, int(config.get("total_steps", TOTAL_STEPS)) - interval + 2, interval, dtype=np.int64)
+
+
+def _check_training_grid(label: str, train: pd.DataFrame, config: dict) -> None:
+    expected = expected_train_steps(config)
+    if not np.array_equal(train["step"].to_numpy(dtype=np.int64), expected):
+        _fail(label, f"training log steps are not exactly {int(expected[0])}..{int(expected[-1])} "
+                     f"({len(expected)} rows); found {len(train)} rows")
+
+
+def _check_episodes(label: str, episodes: pd.DataFrame) -> None:
+    missing = [c for c in EPISODE_COLUMNS if c not in episodes.columns]
+    if missing:
+        _fail(label, f"training episode log lacks columns {missing}")
+    expected = np.arange(EPISODE_LENGTH, TOTAL_STEPS + 1, EPISODE_LENGTH, dtype=np.int64)
+    if len(episodes) != N_TRAIN_EPISODES or not np.array_equal(
+            pd.to_numeric(episodes["step"], errors="coerce").to_numpy(dtype=float), expected):
+        _fail(label, f"training episode log must contain exactly {N_TRAIN_EPISODES} episodes ending at steps "
+                     f"{EPISODE_LENGTH}..{TOTAL_STEPS}; found {len(episodes)} rows")
+    values = episodes[["elapsed_sec", "episode_return", "episode_length"]].apply(
+        pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+    if not np.isfinite(values).all():
+        _fail(label, "non-finite values in the training episode log (not finite)")
+    if not (episodes["episode_length"] == EPISODE_LENGTH).all():
+        _fail(label, f"training episode log has episode_length != {EPISODE_LENGTH}")
+    if (np.diff(episodes["elapsed_sec"].to_numpy(dtype=float)) < 0).any():
+        _fail(label, "training episode log elapsed_sec decreases")
 
 
 def load_run(spec: ArchSpec, seed: int) -> Run:
@@ -195,11 +236,15 @@ def load_run(spec: ArchSpec, seed: int) -> Run:
         _fail(label, "metadata final evaluation returns differ from eval_metrics.csv")
 
     _check_training_steps(label, train, int(config.get("log_interval", DEFAULT_LOG_INTERVAL)))
+    _check_training_grid(label, train, config)
     values = train[list(TRAIN_FINITE_COLUMNS)].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
     if not np.isfinite(values).all():
         _fail(label, "non-finite training diagnostics")
 
-    return Run(spec, seed, folder, config, meta, periodic, final.iloc[0], train, width)
+    episodes = pd.read_csv(folder / "episode_metrics.csv")
+    _check_episodes(label, episodes)
+
+    return Run(spec, seed, folder, config, meta, periodic, final.iloc[0], train, width, episodes)
 
 
 def load_all(specs: dict[str, ArchSpec] | None = None, seeds=SEEDS) -> dict[str, list[Run]]:
@@ -231,7 +276,30 @@ def check_comparable(runs_by_arch: dict[str, list[Run]]) -> None:
                     f"{name} seed {r.seed}: config differs from reference beyond the width variable: {diff}")
 
 
+def require_seed_set(runs_by_arch: dict[str, list[Run]], seeds=SEEDS) -> None:
+    """Every architecture must contribute exactly the expected training seeds, once each."""
+    for name, rs in runs_by_arch.items():
+        found = sorted(r.seed for r in rs)
+        if found != sorted(seeds):
+            raise ValidationError(f"{name}: expected seeds {sorted(seeds)}, found {found}")
+
+
 # ---------------------------------------------------------------- statistics
+
+def seed_summary(values) -> dict:
+    """Between-training-seed summary (sample SD, ddof=1). CV is undefined unless the mean is positive."""
+    arr = np.asarray(values, dtype=float)
+    mean, sd = float(arr.mean()), float(arr.std(ddof=1))
+    return {"n": int(arr.size), "mean": mean, "sd": sd, "min": float(arr.min()), "max": float(arr.max()),
+            "range": float(arr.max() - arr.min()), "cv": sd / mean if mean > 0 else float("nan"),
+            "per_seed": [float(v) for v in arr]}
+
+
+def pairwise_effects(values_by_arch: dict, pairs) -> dict:
+    """Descriptive unpaired comparisons keyed 'later - reference' for each (reference, later) pair.
+
+    Seeds are NOT treated as paired: the same numeric seed in two architectures is not a matched sample."""
+    return {f"{b} - {a}": effect_size(values_by_arch[a], values_by_arch[b]) for a, b in pairs}
 
 def mean_sd(values) -> tuple[float, float]:
     arr = np.asarray(values, dtype=float)
@@ -340,3 +408,44 @@ def _json_safe(obj):
 def dumps_strict(obj, indent: int = 2) -> str:
     """Standards-compliant JSON: undefined (NaN/Inf) values become null; allow_nan is disabled."""
     return json.dumps(_json_safe(obj), indent=indent, allow_nan=False)
+
+
+def eval_drops(periodic: pd.DataFrame, threshold: float) -> list[dict]:
+    """Periodic evaluations whose mean return fell by more than `threshold` relative to the previous one."""
+    steps = periodic["step"].to_numpy()
+    values = periodic["mean_return"].to_numpy(dtype=float)
+    return [{"step": int(steps[i]), "drop": float(values[i - 1] - values[i])}
+            for i in range(1, len(values)) if values[i - 1] - values[i] > threshold]
+
+
+def window_max_ratio(train: pd.DataFrame, column: str, step: int, window: int = 25_000) -> float:
+    """Max of `column` over logged rows with step-window < step <= step, divided by the run's median."""
+    sel = train[(train["step"] > step - window) & (train["step"] <= step)]
+    if sel.empty:
+        return float("nan")
+    values = pd.to_numeric(train[column], errors="coerce")
+    return float(pd.to_numeric(sel[column], errors="coerce").max() / values.median())
+
+
+def interval_sps(train: pd.DataFrame) -> pd.Series:
+    """Throughput within each logging interval (env steps / wall-clock seconds between log rows)."""
+    return (train["step"].diff() / train["elapsed_sec"].diff()).iloc[1:].reset_index(drop=True)
+
+
+def linear_slope(x, y) -> float:
+    """Least-squares slope of y against x (descriptive trend, not an inferential test)."""
+    return float(np.polyfit(np.asarray(x, dtype=float), np.asarray(y, dtype=float), 1)[0])
+
+
+def throughput_drop_onset(train: pd.DataFrame, window: int = 25, fraction: float = 0.6) -> dict:
+    """Step at which the trailing-median interval throughput first falls below `fraction` x the run's
+    early steady throughput (median of log rows 10-60). Descriptive; it does not identify a cause."""
+    sps = interval_sps(train)
+    base = float(sps.iloc[10:60].median())
+    roll = sps.rolling(window, min_periods=window).median()
+    hits = np.flatnonzero((roll < fraction * base).to_numpy())
+    if not len(hits):
+        return {"onset_step": None, "median_sps_before": float(sps.median()), "median_sps_after": None}
+    i = int(hits[0])
+    return {"onset_step": int(train["step"].iloc[i + 1]), "median_sps_before": float(sps.iloc[:i].median()),
+            "median_sps_after": float(sps.iloc[i:].median())}
