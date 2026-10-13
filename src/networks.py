@@ -5,6 +5,8 @@ tanh-bounded log_std, tanh-squashed Gaussian actor with action scale/bias,
 and the tanh change-of-variables correction to the log-probability.
 """
 
+import numbers
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -12,6 +14,7 @@ import torch.nn.functional as F
 from gymnasium.spaces import Box
 
 HIDDEN_SIZE = 256  # default hidden width (the frozen 2x256 baseline)
+HIDDEN_DEPTH = 2  # default number of hidden layers (the frozen 2x256 baseline)
 LOG_STD_MIN = -5.0
 LOG_STD_MAX = 2.0
 
@@ -22,16 +25,40 @@ def _check_width(hidden_width: int) -> int:
     return hidden_width
 
 
+def _check_depth(hidden_depth: int) -> int:
+    """Depth = number of fully connected hidden layers before the output head.
+    fc1 and fc2 always exist (keeps the baseline layer names), so the minimum is 2."""
+    if isinstance(hidden_depth, bool) or not isinstance(hidden_depth, numbers.Integral):
+        raise ValueError(f"hidden_depth must be an integer >= 2, got {hidden_depth!r}")
+    if hidden_depth < 2:
+        raise ValueError(f"hidden_depth must be an integer >= 2, got {hidden_depth}")
+    return int(hidden_depth)
+
+
+def _extra_hidden_layers(hidden_width: int, hidden_depth: int) -> nn.ModuleList:
+    """Width-preserving hidden layers beyond fc1/fc2 (empty for depth 2, so the
+    baseline state_dict keys and RNG consumption are unchanged)."""
+    return nn.ModuleList([nn.Linear(hidden_width, hidden_width) for _ in range(hidden_depth - 2)])
+
+
 class QNetwork(nn.Module):
     """One SAC Q-function Q(s, a) -> scalar. Q1 and Q2 are separate instances."""
 
-    def __init__(self, observation_space: Box, action_space: Box, hidden_width: int = HIDDEN_SIZE) -> None:
+    def __init__(
+        self,
+        observation_space: Box,
+        action_space: Box,
+        hidden_width: int = HIDDEN_SIZE,
+        hidden_depth: int = HIDDEN_DEPTH,
+    ) -> None:
         super().__init__()
         hidden_width = _check_width(hidden_width)
+        hidden_depth = _check_depth(hidden_depth)
         obs_dim = int(np.prod(observation_space.shape))
         act_dim = int(np.prod(action_space.shape))
         self.fc1 = nn.Linear(obs_dim + act_dim, hidden_width)
         self.fc2 = nn.Linear(hidden_width, hidden_width)
+        self.hidden_extra = _extra_hidden_layers(hidden_width, hidden_depth)  # hidden layers 3..depth
         self.fc3 = nn.Linear(hidden_width, 1)
 
     def forward(self, obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
@@ -39,19 +66,29 @@ class QNetwork(nn.Module):
         x = torch.cat([obs, action], dim=1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        for layer in self.hidden_extra:
+            x = F.relu(layer(x))
         return self.fc3(x)
 
 
 class Actor(nn.Module):
     """Squashed-Gaussian SAC policy for bounded continuous (Box) actions."""
 
-    def __init__(self, observation_space: Box, action_space: Box, hidden_width: int = HIDDEN_SIZE) -> None:
+    def __init__(
+        self,
+        observation_space: Box,
+        action_space: Box,
+        hidden_width: int = HIDDEN_SIZE,
+        hidden_depth: int = HIDDEN_DEPTH,
+    ) -> None:
         super().__init__()
         hidden_width = _check_width(hidden_width)
+        hidden_depth = _check_depth(hidden_depth)
         obs_dim = int(np.prod(observation_space.shape))
         act_dim = int(np.prod(action_space.shape))
         self.fc1 = nn.Linear(obs_dim, hidden_width)
         self.fc2 = nn.Linear(hidden_width, hidden_width)
+        self.hidden_extra = _extra_hidden_layers(hidden_width, hidden_depth)  # hidden layers 3..depth
         self.fc_mean = nn.Linear(hidden_width, act_dim)
         self.fc_logstd = nn.Linear(hidden_width, act_dim)
 
@@ -66,6 +103,8 @@ class Actor(nn.Module):
         """obs (B, obs_dim) -> Gaussian mean and log_std, each (B, act_dim)."""
         x = F.relu(self.fc1(obs))
         x = F.relu(self.fc2(x))
+        for layer in self.hidden_extra:
+            x = F.relu(layer(x))
         mean = self.fc_mean(x)
         # Bound log_std smoothly: tanh -> (-1, 1) -> rescale to (LOG_STD_MIN, LOG_STD_MAX).
         log_std = torch.tanh(self.fc_logstd(x))
