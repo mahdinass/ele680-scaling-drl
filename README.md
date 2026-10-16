@@ -107,3 +107,11 @@ Each run gets its own directory `results/<run_id>/` (the default run id is `<env
 The CSV/JSON files are the source of truth; TensorBoard is only a viewer (`tensorboard --logdir results`). All `step` columns mean "environment steps completed". Actor columns in `train_metrics.csv` are blank on rows where no actor update happened.
 
 Checkpoints do **not** include the replay buffer or RNG states, so they are for inspection/evaluation, not exact training resumption (yet).
+
+## InputNorm ablation candidate
+
+The 8x256 InputNorm-only implementation and manual Gorina4 validation procedure
+are documented in [docs/INPUTNORM_ABLATION.md](docs/INPUTNORM_ABLATION.md).
+Local verification is recorded in
+[docs/INPUTNORM_LOCAL_VALIDATION.md](docs/INPUTNORM_LOCAL_VALIDATION.md).
+Scientific InputNorm results are not yet available; server preflights remain required.
