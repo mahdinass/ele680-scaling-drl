@@ -185,7 +185,60 @@ class ArchitectureTests(EqualityMixin, unittest.TestCase):
             save_checkpoint(path, agent, 24, tiny(device="cuda"), 0)
             fresh = SACAgent(*spaces(), device="cuda", hidden_depth=8, residual_connections=True)
             load_checkpoint(path, fresh)
-            self.assert_nested_equal(agent_snapshot(agent), agent_snapshot(fresh))
+            cuda_device = fresh.log_alpha.device  # resolve "cuda" to the actual CUDA index
+            self.assertEqual(cuda_device.type, "cuda")
+            optimizer_names = ("actor_optimizer", "critic_optimizer", "alpha_optimizer")
+            relocated_steps = dict.fromkeys(optimizer_names, 0)
+
+            def assert_restored_equal(original, restored, path=()):
+                if isinstance(original, torch.Tensor):
+                    self.assertEqual(original.dtype, restored.dtype, path)
+                    self.assertEqual(original.shape, restored.shape, path)
+                    # PyTorch 2.5.1 Adam initializes these counters on CPU, but
+                    # load_state_dict preserves torch.load(map_location=cuda)'s
+                    # relocation for non-capturable/non-fused step tensors.
+                    if (len(path) == 4 and path[0] in optimizer_names
+                            and path[1] == "state" and path[3] == "step"):
+                        self.assertEqual(original.shape, torch.Size([]), path)
+                        self.assertEqual(original.device, torch.device("cpu"), path)
+                        self.assertEqual(restored.device, cuda_device, path)
+                        self.assertTrue(torch.equal(original.cpu(), restored.cpu()), path)
+                        relocated_steps[path[0]] += 1
+                    else:
+                        self.assertEqual(original.device, cuda_device, path)
+                        self.assertEqual(restored.device, original.device, path)
+                        self.assertTrue(torch.equal(original, restored), path)
+                elif isinstance(original, dict):
+                    self.assertEqual(set(original), set(restored), path)
+                    for key in original:
+                        assert_restored_equal(original[key], restored[key], (*path, key))
+                elif isinstance(original, (list, tuple)):
+                    self.assertEqual(type(original), type(restored), path)
+                    self.assertEqual(len(original), len(restored), path)
+                    for index, (a, b) in enumerate(zip(original, restored)):
+                        assert_restored_equal(a, b, (*path, index))
+                else:
+                    self.assertEqual(original, restored, path)
+
+            assert_restored_equal(agent_snapshot(agent), agent_snapshot(fresh))
+            self.assertEqual(relocated_steps, {"actor_optimizer": 20, "critic_optimizer": 36, "alpha_optimizer": 1})
+
+            # Exercise the loaded CUDA optimizer state, not only a fresh agent.
+            steps_before = {name: [state["step"].item() for state in getattr(fresh, name).state.values()]
+                            for name in optimizer_names}
+            batch = fake_batch(fresh.device)
+            losses = [fresh.update_critic(batch), *fresh.update_actor_and_alpha(batch)]
+            self.assertTrue(np.isfinite(losses).all())
+            for name in optimizer_names:
+                states = list(getattr(fresh, name).state.values())
+                self.assertEqual([state["step"].item() for state in states],
+                                 [step + 1 for step in steps_before[name]])
+                self.assertTrue(all(torch.isfinite(value).all() for state in states for value in state.values()))
+                self.assertTrue(all(state[key].device == cuda_device for state in states
+                                    for key in ("exp_avg", "exp_avg_sq")))
+            for network in NETWORKS:
+                self.assertTrue(all(torch.isfinite(p).all() for p in getattr(fresh, network).parameters()))
+            self.assertTrue(torch.isfinite(fresh.log_alpha).all())
         result = train(tiny(device="cuda"), FakeEnv)
         self.assertEqual(result.steps_completed, 24)
 

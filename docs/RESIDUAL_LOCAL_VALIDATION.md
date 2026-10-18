@@ -127,3 +127,56 @@ scientific outcomes remain unknown. Generalization/significance/mechanism claims
 and exact training continuation are unsupported. Use the full residual commit
 SHA in the PR handoff as a code-review candidate; any changed SHA needs new
 review/server gates. Stop here for independent code review.
+
+## CUDA checkpoint comparison correction — 18 October 2026
+
+The user independently tested original candidate
+`c61a3aca7acabbdf19995740bbcbc1c0b39aa4ec` on Gorina4: CPU 183 tests passed
+with 6 CUDA skips; CUDA 183 tests had one error in the residual checkpoint
+comparison. Their recursive diagnostic found only optimizer step-counter device
+differences: actor 20, critics 36, alpha 1, each CPU -> CUDA:0 with identical values.
+These server observations are user-supplied evidence, not local CUDA verification.
+
+Investigated the installed PyTorch 2.5.1 source and its official version tag:
+
+- [Adam initialization](https://github.com/pytorch/pytorch/blob/v2.5.1/torch/optim/adam.py):
+  non-capturable, non-fused Adam initializes scalar step counters on CPU, while
+  moment tensors follow parameters.
+- [Optimizer loading](https://github.com/pytorch/pytorch/blob/v2.5.1/torch/optim/optimizer.py):
+  `_process_value_according_to_param_policy` preserves already-loaded step tensors
+  in that mode. The existing checkpoint loader uses `map_location=agent.device`,
+  moving those serialized CPU counters to CUDA before optimizer restoration.
+
+The correction changes only the failing CUDA test and this evidence record.
+A comparison local to that test explicitly permits CPU -> actual indexed CUDA
+relocation only at the three optimizers' `state.<parameter_id>.step` paths. It
+requires scalar shape, identical dtype/value and exactly 20/36/1 such counters.
+All other tensors, including model parameters/buffers, log_alpha and optimizer
+moments, must have identical CUDA devices, dtype, shape and exact values. The
+shared EqualityMixin is unchanged; no blanket CPU conversion is applied.
+
+The restored CUDA agent then performs critic, actor and alpha updates. The test
+requires finite losses, model/alpha parameters and all optimizer state tensors,
+each counter incremented by one, and moment tensors remaining on CUDA. Existing
+CUDA training/evaluation coverage remains. Production checkpoint/SAC logic,
+architecture, hyperparameters, configurations and launch helpers are unchanged.
+
+Local CUDA remains unavailable. The revised comparison and loaded-state CUDA
+updates require the user's complete CPU/CUDA gate repeat on the new full commit
+SHA. Previous receipts cannot validate it. No Gorina4 connection or preflight or
+scientific run is performed or authorized by this correction. Stop after
+implementation for independent review.
+
+Actual local reruns for this correction (same commands/environment as above):
+
+| Verification | Actual result | Exit |
+|---|---|---:|
+| Full implementation discovery | 183 discovered, **177 passed**, **6 CUDA skipped**, 370.934 s | 0 |
+| Existing complete analysis suite | **115 passed**, 124.743 s | 0 |
+| Final test AST and comparison against original test module | Passed; only the CUDA-specific test differs | 0 |
+| `git diff --check`; protected production/shared-comparison paths | Passed; unchanged | 0 |
+
+Logs: ignored `.venv-inputnorm/residual-cuda-fix-tests.log` and
+`.venv-inputnorm/residual-cuda-fix-analysis.log`. The modified CUDA test is one
+of the six skips; neither its revised assertions nor its restored-state updates
+were executed locally. No unresolved local test failures remain.
