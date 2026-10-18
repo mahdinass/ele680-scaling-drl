@@ -115,3 +115,15 @@ are documented in [docs/INPUTNORM_ABLATION.md](docs/INPUTNORM_ABLATION.md).
 Local verification is recorded in
 [docs/INPUTNORM_LOCAL_VALIDATION.md](docs/INPUTNORM_LOCAL_VALIDATION.md).
 Scientific InputNorm results are not yet available; server preflights remain required.
+
+## Residual-only 8x256 implementation
+
+The isolated residual-only design, checkpoint semantics and manual Gorina4 gates
+are in [docs/RESIDUAL_ABLATION.md](docs/RESIDUAL_ABLATION.md), with actual local
+test evidence in [docs/RESIDUAL_LOCAL_VALIDATION.md](docs/RESIDUAL_LOCAL_VALIDATION.md).
+This branch is stacked on frozen InputNorm commit
+`689dbee26af0ab44957bd17dafc7435d8f4a6109` (open PR #1), while its new experiment
+disables InputNorm. Readiness is **CODE REVIEW ONLY**; server validation and
+residual scientific results remain pending. The earlier InputNorm candidate
+status above is historical; the latest Notion milestones record its completed
+three-seed study.

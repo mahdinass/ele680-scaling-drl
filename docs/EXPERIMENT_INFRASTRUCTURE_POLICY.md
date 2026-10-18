@@ -451,3 +451,22 @@ metadata gains a normalization summary. Existing CSV schemas, schedules, depende
 GPU assignment and historical artifacts remain unchanged. Exact training resumption
 is still unsupported. No scientific launch is authorized by this documentation;
 local CPU tests do not establish server CUDA readiness.
+
+## 22. Residual-only extension (code-review candidate, 18 October 2026)
+
+The independent residual-only configuration disables InputNorm and preserves the
+eight hidden Linear layers, initializers and all 1402126 actor/online-critic
+parameters. Seven post-addition ReLU identity shortcuts are the only scientific
+intervention. `residual_connections` defaults to false; checkpoint config records
+it and save/load reject semantic disagreement across agent and all five networks
+before restoration. Missing historical flags mean false. Network weight keys alone
+cannot identify residual semantics. Existing InputNorm implementation/source and
+completed scientific artifacts remain frozen.
+
+See `RESIDUAL_ABLATION.md` for the manual, exact-commit CPU/CUDA tests, separate
+6200/26000 preflights, monitored launch and artifact audits. Residual receipts live
+in `results/residual_gates/<SHA>/`; InputNorm receipts cannot satisfy these gates.
+No server package, GPU allocation, SAC/replay/evaluation/logging schedule or
+scientific budget changes are introduced. No server access or scientific training
+is authorized by this code-review candidate; independent code review precedes any
+user-operated Gorina4 validation. Exact training resumption remains unsupported.

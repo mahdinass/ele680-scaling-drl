@@ -20,7 +20,7 @@ import torch
 from src.checkpoint import save_checkpoint
 from src.envs import EVAL_SEED_OFFSET, make_env, set_global_seed
 from src.evaluate import EvalResult, evaluate
-from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE
+from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, _check_residual_connections
 from src.replay_buffer import ReplayBuffer
 from src.run_logger import RunLogger
 from src.run_metadata import count_parameters
@@ -56,6 +56,10 @@ class TrainConfig:
     checkpoint_interval: int = 0  # periodic checkpoint every N steps; 0 = final only
     tensorboard: bool = True
     input_norm: bool = False  # appended: preserve historical positional config arguments
+    residual_connections: bool = False  # appended after all historical fields
+
+    def __post_init__(self) -> None:
+        _check_residual_connections(self.residual_connections)
 
 
 @dataclass
@@ -113,6 +117,7 @@ def _train(
         obs_space, act_space, device, config.gamma, config.tau, config.policy_lr, config.q_lr,
         config.hidden_width, config.hidden_depth,
         input_norm=config.input_norm,
+        residual_connections=config.residual_connections,
     )
     rb = ReplayBuffer(
         config.buffer_size,

@@ -39,10 +39,10 @@ def tiny(**kwargs):
 
 def frozen_modules():
     """Load actual control source, including its train loop, without writing files."""
-    saved = {name: sys.modules.get(name) for name in ("src.sac_update", "src.train")}
+    saved = {name: sys.modules.get(name) for name in ("src.networks", "src.sac_update", "src.train")}
     loaded = {}
     try:
-        for name in ("src.sac_update", "src.train"):
+        for name in ("src.networks", "src.sac_update", "src.train"):
             source = subprocess.run(
                 ["git", "show", f"{REFERENCE}:{name.replace('.', '/')}.py"],
                 cwd=ROOT, capture_output=True, check=True, timeout=20,
@@ -416,7 +416,8 @@ class FrozenCompatibilityTests(EqualityMixin, unittest.TestCase):
     def test_disabled_training_matches_actual_frozen_loop_both_depths(self):
         for depth in (2, 8):
             cfg = tiny(hidden_depth=depth, input_norm=False)
-            old_cfg = self.old_train.TrainConfig(**{k: v for k, v in dataclasses.asdict(cfg).items() if k != "input_norm"})
+            old_cfg = self.old_train.TrainConfig(**{k: v for k, v in dataclasses.asdict(cfg).items()
+                                                  if k not in ("input_norm", "residual_connections")})
             a = self.old_train.train(old_cfg, FakeEnv)
             rng = (random.getstate(), np.random.get_state(), torch.get_rng_state())
             b = train(cfg, FakeEnv)
