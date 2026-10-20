@@ -470,3 +470,23 @@ No server package, GPU allocation, SAC/replay/evaluation/logging schedule or
 scientific budget changes are introduced. No server access or scientific training
 is authorized by this code-review candidate; independent code review precedes any
 user-operated Gorina4 validation. Exact training resumption remains unsupported.
+
+## 23. LayerNorm-only extension (code-review candidate, 20 October 2026)
+
+`layer_norm` is a strict appended default-false flag. The 8x256 scientific config
+applies independent learnable LayerNorm after each hidden Linear and before
+ReLU in actor, Q1/Q2 and targets, with InputNorm/residual disabled. Eight norms
+add 4096 affine parameters per online network, 12288 in total; actor+online-critic
+count is 1414414. No normalization touches raw observations/actions/rewards or
+output heads. Disabled networks have no new modules/weight keys; historical
+initialization and learning behavior must remain identical. Checkpoints record
+and validate mode against agent/all five networks before restoration; missing
+historical flags mean false. Existing InputNorm/Residual protections remain.
+No loss, evaluation, replay, CSV, seeding, optimizer schedule, dependency or
+historical artifact change is introduced.
+
+See `LAYERNORM_ABLATION.md` and `LAYERNORM_LOCAL_VALIDATION.md`. Independent code
+review precedes user-operated server validation. New exact-SHA CPU/CUDA receipts
+and separate audited 6200/26000 preflights are required; previous ablation receipts
+do not qualify. No Gorina4 access or scientific training is authorized by this
+implementation task. Exact training continuation remains unsupported.

@@ -127,3 +127,16 @@ disables InputNorm. Readiness is **CODE REVIEW ONLY**; server validation and
 residual scientific results remain pending. The earlier InputNorm candidate
 status above is historical; the latest Notion milestones record its completed
 three-seed study.
+
+## LayerNorm-only 8x256 implementation
+
+The final required ablation is implemented on `codex/layernorm-8x256`, stacked
+on exact reviewed Residual source `41ffb94d03472a5ebc81b4d39fdf9c59bfbe6609`.
+See [docs/LAYERNORM_ABLATION.md](docs/LAYERNORM_ABLATION.md) for architecture,
+compatibility and the manual exact-commit validation workflow, and
+[docs/LAYERNORM_LOCAL_VALIDATION.md](docs/LAYERNORM_LOCAL_VALIDATION.md) for local
+evidence. **Code-review candidate only:** no LayerNorm server validation,
+preflight or scientific training has been performed by this task. Latest
+user-verified status (20 October): 21/24 scientific runs audited, including all
+InputNorm and Residual seeds; only LayerNorm seeds 0/1/2 remain. Earlier candidate
+status text is historical. Defer comparisons until LayerNorm science completes.

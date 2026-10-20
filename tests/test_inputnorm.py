@@ -417,7 +417,7 @@ class FrozenCompatibilityTests(EqualityMixin, unittest.TestCase):
         for depth in (2, 8):
             cfg = tiny(hidden_depth=depth, input_norm=False)
             old_cfg = self.old_train.TrainConfig(**{k: v for k, v in dataclasses.asdict(cfg).items()
-                                                  if k not in ("input_norm", "residual_connections")})
+                                                  if k not in ("input_norm", "residual_connections", "layer_norm")})
             a = self.old_train.train(old_cfg, FakeEnv)
             rng = (random.getstate(), np.random.get_state(), torch.get_rng_state())
             b = train(cfg, FakeEnv)
