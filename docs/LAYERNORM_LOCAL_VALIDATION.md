@@ -149,3 +149,69 @@ No server CUDA readiness or scientific outcome is claimed. Exact continuation
 remains unsupported; shared GPU load and n=3 limit future interpretation. Review
 the complete stacked diff before authorizing any Gorina4 action. The manual
 exact-SHA test/preflight/science sequence is in `LAYERNORM_ABLATION.md`.
+
+## Gorina4 CUDA evaluation-fixture failure and test-only correction — 20 October 2026
+
+User-supplied server evidence for exact original LayerNorm source
+`4898f5b8f1be997e02803b3c859e171824449f06`: CPU discovery ran 214 tests successfully
+with seven expected CUDA skips; CUDA discovery ran 214 tests and failed with
+exactly one error. All six other CUDA-specific tests passed. No preflight or
+scientific LayerNorm training had started. These are reported Gorina4 results,
+not local CUDA verification or a server connection by this correction task.
+
+The failing evaluation call in `test_layernorm.py` line 301 supplied `FakeEnv(0)`
+to the restored 17-observation/6-action actor. That fixture supplies observations
+of shape (3,) and an action space of shape (2,). The first actor projection raised
+`RuntimeError: mat1 and mat2 shapes cannot be multiplied (1x3 and 17x256)`.
+The fixture choice was a test error, not evidence of a production architecture,
+SAC or checkpoint defect. The original SHA's CUDA gate remains failed.
+
+The correction changes only this test module and this evidence document:
+
+- Add `HalfCheetahShapeEvalEnv`, a local deterministic FakeEnv subclass with
+  observation/action spaces (17,)/(6,), matching the existing `spaces()` helper.
+  Its observations match the declared shape; step checks finite bounded actions
+  against the six-dimensional Box. It retains deterministic five-step episodes,
+  reward 1 per step, reset-seed tracking and termination/truncation behavior.
+- Replace only the fixture construction in the CUDA evaluation call. Preserve
+  both 5/10-episode checks, checkpoint/optimizer equality, all tensor value/device
+  assertions, restored-optimizer updates, model-state immutability and CUDA RNG
+  isolation. AST comparison confirms the CUDA function is otherwise identical.
+- Adapt the CPU checkpoint roundtrip regression to evaluate the restored
+  17-observation/6-action actor with the same fixture for both 5/10 episodes.
+  Assert dimensions, exact episode counts/returns/mean and seed sequence, and
+  verify all agent model/optimizer state and CPU Torch RNG remain unchanged after
+  each evaluation. This path now executes even when CUDA is unavailable locally.
+
+No production source, architecture, SAC, configs, historical artifacts, runners,
+gate/audit behavior or dependencies are changed. Local CUDA remains unavailable.
+Independent review of the new full SHA and fresh server CPU/CUDA gates are
+required before considering preflights; old receipts do not validate a new SHA.
+No Gorina4 access or scientific launch is performed or authorized by this fix.
+
+Local correction checks use the same runtimes, workspace TEMP/TMP and OMP/MKL
+settings documented above; no dependencies were changed:
+
+| Correction verification | Actual result | Exit |
+|---|---|---:|
+| Adapted CPU checkpoint/evaluation regression | **1 passed**, 10.480 s | 0 |
+| Complete implementation discovery | **214 discovered, 207 passed, 7 CUDA skipped**, 174.089 s | 0 |
+| Existing complete analysis suite | **115 passed**, 81.792 s | 0 |
+| CUDA-function AST vs original SHA, ignoring only fixture substitution | **Identical**, all assertions retained | 0 |
+| Python AST syntax and two-file scope check | **Passed** | 0 |
+| `git diff --check` | **Passed** | 0 |
+
+No failures/errors remain in these local suites. The adapted regression remains
+one existing test, so discovery count is unchanged. All seven CUDA tests,
+including the corrected branch, were skipped locally on Torch 2.5.1+cpu and
+remain unvalidated on the new source until independent server revalidation.
+
+A separate regression-sensitivity check temporarily substitutes the original
+incompatible FakeEnv through an in-memory mock. The adapted CPU test then fails
+on (3,) versus (17,) observation dimensions as expected; the guard command asserts
+that failure and exits 0. No source files are changed by that check, and its
+intentional failure is not counted as a successful CUDA test or a suite failure.
+
+Correction logs are ignored under `.venv-inputnorm/`:
+`layernorm-eval-fix-focused.log`, `layernorm-eval-fix-implementation.log`,
+`layernorm-eval-fix-analysis.log`, `layernorm-eval-fix-regression-sensitivity.log`.

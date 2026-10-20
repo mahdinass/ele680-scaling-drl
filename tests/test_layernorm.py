@@ -39,6 +39,22 @@ RESIDUAL = "41ffb94d03472a5ebc81b4d39fdf9c59bfbe6609"
 COUNTS = {"actor": 472332, "q1": 471041, "q2": 471041, "total": 1414414}
 
 
+class HalfCheetahShapeEvalEnv(FakeEnv):
+    """Deterministic test fixture matching spaces(), not a MuJoCo simulation."""
+
+    def __init__(self, seed=0):
+        super().__init__(seed)
+        self.observation_space, self.action_space = spaces()
+        self.action_space.seed(seed)
+
+    def _obs(self):
+        return np.full(self.observation_space.shape, .1 * self.t + self.episode, dtype=np.float32)
+
+    def step(self, action):
+        assert self.action_space.contains(action), "Expected a finite bounded action of shape (6,)"
+        return super().step(action)
+
+
 def agent_snapshot(agent):
     # The actual naive reference predates the observation_normalizer attribute.
     normalizer = getattr(agent, "observation_normalizer", None)
@@ -298,7 +314,7 @@ class ArchitectureTests(EqualityMixin, unittest.TestCase):
             before = agent_snapshot(fresh)
             rng = torch.cuda.get_rng_state()
             for episodes in (5, 10):
-                result = evaluate(fresh.actor, FakeEnv(0), episodes, 10000, "cuda")
+                result = evaluate(fresh.actor, HalfCheetahShapeEvalEnv(0), episodes, 10000, "cuda")
                 self.assertTrue(np.isfinite(result.returns).all())
             self.assert_nested_equal(before, agent_snapshot(fresh))
             self.assert_nested_equal(rng, torch.cuda.get_rng_state())
@@ -397,6 +413,23 @@ class CheckpointTests(EqualityMixin, unittest.TestCase):
             self.assertEqual(load_checkpoint(path, fresh)["global_step"], 24)
             self.assert_nested_equal(agent_snapshot(agent), agent_snapshot(fresh))
             self.assert_nested_equal(agent.actor.get_deterministic_action(batch.obs), fresh.actor.get_deterministic_action(batch.obs))
+            # Exercise the same 17-observation/6-action fixture as CUDA even when
+            # CUDA is skipped locally; evaluate the restored actor for both budgets.
+            before = agent_snapshot(fresh)
+            rng = torch.get_rng_state()
+            for episodes in (5, 10):
+                env = HalfCheetahShapeEvalEnv(0)
+                try:
+                    self.assertEqual(env.observation_space.shape, (17,))
+                    self.assertEqual(env.action_space.shape, (6,))
+                    result = evaluate(fresh.actor, env, episodes, 10000, "cpu")
+                    self.assertEqual(result.returns, [5.0] * episodes)
+                    self.assertEqual(result.mean_return, 5.0)
+                    self.assertEqual(env.reset_seeds, list(range(10000, 10000 + episodes)))
+                finally:
+                    env.close()
+                self.assert_nested_equal(before, agent_snapshot(fresh))
+                self.assert_nested_equal(rng, torch.get_rng_state())
 
     def test_flag_mismatches_malformed_and_missing_flag_reject_before_mutation(self):
         with tempfile.TemporaryDirectory() as tmp:
