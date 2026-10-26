@@ -143,9 +143,9 @@ class ArchitectureTests(EqualityMixin, unittest.TestCase):
     def test_historical_positional_arguments_preserved(self):
         old_sac, old_train = frozen_modules()
         old_fields = [f.name for f in dataclasses.fields(old_train.TrainConfig)]
-        self.assertEqual([f.name for f in dataclasses.fields(TrainConfig)], old_fields + ["input_norm", "residual_connections"])
+        self.assertEqual([f.name for f in dataclasses.fields(TrainConfig)], old_fields + ["input_norm", "residual_connections", "layer_norm"])
         names = list(inspect.signature(old_sac.SACAgent).parameters)
-        self.assertEqual(list(inspect.signature(SACAgent).parameters), names + ["input_norm", "residual_connections"])
+        self.assertEqual(list(inspect.signature(SACAgent).parameters), names + ["input_norm", "residual_connections", "layer_norm"])
         agent = SACAgent(*spaces(), "cpu", .99, .005, 3e-4, 1e-3, 256, 8, False, True)
         self.assertTrue(agent.actor.residual_connections)
         self.assertTrue(Actor(*spaces(), 256, 8, True).residual_connections)
@@ -283,7 +283,7 @@ class FrozenControlTests(EqualityMixin, unittest.TestCase):
         for depth in (2, 8):
             config = tiny(hidden_depth=depth, residual_connections=False)
             old_config = self.old_train.TrainConfig(**{k: v for k, v in dataclasses.asdict(config).items()
-                                                       if k not in ("input_norm", "residual_connections")})
+                                                       if k not in ("input_norm", "residual_connections", "layer_norm")})
             old = self.old_train.train(old_config, FakeEnv)
             rng = (random.getstate(), np.random.get_state(), torch.get_rng_state())
             new = train(config, FakeEnv)

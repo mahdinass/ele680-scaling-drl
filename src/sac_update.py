@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from gymnasium.spaces import Box
 from torch.optim import Adam
 
-from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, Actor, QNetwork, _check_residual_connections
+from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, Actor, QNetwork, _check_residual_connections, _check_layer_norm
 from src.observation_normalization import ObservationNormalizer
 from src.replay_buffer import Batch
 
@@ -57,9 +57,13 @@ class SACAgent:
         hidden_depth: int = HIDDEN_DEPTH,
         input_norm: bool = False,
         residual_connections: bool = False,
+        layer_norm: bool = False,
     ) -> None:
         self.device = torch.device(device)
         self.residual_connections = _check_residual_connections(residual_connections)
+        self.layer_norm = _check_layer_norm(layer_norm)
+        if self.layer_norm and (input_norm or residual_connections):
+            raise ValueError("LayerNorm-only cannot enable input_norm or residual_connections")
         self.gamma = gamma
         self.tau = tau
         if type(input_norm) is not bool:
@@ -69,11 +73,11 @@ class SACAgent:
         )
 
         self.actor = Actor(observation_space, action_space, hidden_width, hidden_depth,
-                           residual_connections=residual_connections).to(self.device)
+                           residual_connections=residual_connections, layer_norm=layer_norm).to(self.device)
         self.qf1 = QNetwork(observation_space, action_space, hidden_width, hidden_depth,
-                            residual_connections=residual_connections).to(self.device)
+                            residual_connections=residual_connections, layer_norm=layer_norm).to(self.device)
         self.qf2 = QNetwork(observation_space, action_space, hidden_width, hidden_depth,
-                            residual_connections=residual_connections).to(self.device)
+                            residual_connections=residual_connections, layer_norm=layer_norm).to(self.device)
         # Targets start as independent copies and are never trained by an optimizer.
         self.qf1_target = copy.deepcopy(self.qf1)
         self.qf2_target = copy.deepcopy(self.qf2)

@@ -26,11 +26,23 @@ def _validate_residual_mode(agent: SACAgent, enabled: bool) -> None:
             raise ValueError(f"Checkpoint/network residual_connections mismatch: {name}")
 
 
+def _validate_layer_norm_mode(agent: SACAgent, enabled: bool) -> None:
+    if type(enabled) is not bool or agent.layer_norm is not enabled:
+        raise ValueError("Checkpoint/agent layer_norm mismatch")
+    for name in ("actor", "qf1", "qf2", "qf1_target", "qf2_target"):
+        if getattr(agent, name).layer_norm is not enabled:
+            raise ValueError(f"Checkpoint/network layer_norm mismatch: {name}")
+    if enabled and (agent.residual_connections or agent.observation_normalizer is not None):
+        raise ValueError("LayerNorm-only checkpoint has another intervention enabled")
+
+
 def save_checkpoint(path: str | Path, agent: SACAgent, global_step: int, config, seed: int) -> None:
     """Write atomically (temp file + rename) so a crash never leaves a half-written file."""
     path = Path(path)
     residual = getattr(config, "residual_connections", False)
     _validate_residual_mode(agent, residual)
+    layer_norm = getattr(config, "layer_norm", False)
+    _validate_layer_norm_mode(agent, layer_norm)
     if getattr(config, "input_norm", False) != (agent.observation_normalizer is not None):
         raise ValueError("Checkpoint config/agent InputNorm mismatch")
     if agent.observation_normalizer is not None and agent.observation_normalizer.count != global_step:
@@ -46,7 +58,7 @@ def save_checkpoint(path: str | Path, agent: SACAgent, global_step: int, config,
         "alpha_optimizer": agent.alpha_optimizer.state_dict(),
         "log_alpha": agent.log_alpha.detach().cpu(),
         "global_step": global_step,
-        "config": {**asdict(config), "residual_connections": residual},
+        "config": {**asdict(config), "residual_connections": residual, "layer_norm": layer_norm},
         "seed": seed,
     }
     if agent.observation_normalizer is not None:
@@ -63,6 +75,7 @@ def load_checkpoint(path: str | Path, agent: SACAgent) -> dict:
     """
     state = torch.load(path, map_location=agent.device, weights_only=True)
     _validate_residual_mode(agent, state["config"].get("residual_connections", False))
+    _validate_layer_norm_mode(agent, state["config"].get("layer_norm", False))
     enabled = state["config"].get("input_norm", False)
     if type(enabled) is not bool or enabled != (agent.observation_normalizer is not None):
         raise ValueError("Checkpoint/agent InputNorm mismatch")

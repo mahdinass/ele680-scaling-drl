@@ -20,7 +20,7 @@ import torch
 from src.checkpoint import save_checkpoint
 from src.envs import EVAL_SEED_OFFSET, make_env, set_global_seed
 from src.evaluate import EvalResult, evaluate
-from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, _check_residual_connections
+from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, _check_residual_connections, _check_layer_norm
 from src.replay_buffer import ReplayBuffer
 from src.run_logger import RunLogger
 from src.run_metadata import count_parameters
@@ -57,9 +57,13 @@ class TrainConfig:
     tensorboard: bool = True
     input_norm: bool = False  # appended: preserve historical positional config arguments
     residual_connections: bool = False  # appended after all historical fields
+    layer_norm: bool = False  # appended: preserve every historical positional argument
 
     def __post_init__(self) -> None:
         _check_residual_connections(self.residual_connections)
+        _check_layer_norm(self.layer_norm)
+        if self.layer_norm and (self.input_norm or self.residual_connections):
+            raise ValueError("LayerNorm-only cannot enable input_norm or residual_connections")
 
 
 @dataclass
@@ -118,6 +122,7 @@ def _train(
         config.hidden_width, config.hidden_depth,
         input_norm=config.input_norm,
         residual_connections=config.residual_connections,
+        layer_norm=config.layer_norm,
     )
     rb = ReplayBuffer(
         config.buffer_size,
