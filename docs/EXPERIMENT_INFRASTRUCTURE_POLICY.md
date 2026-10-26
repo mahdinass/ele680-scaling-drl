@@ -438,3 +438,16 @@ Record meaningful infrastructure/protocol changes in:
 The infrastructure is ready for the first scientific baseline experiment.
 **The scientific baseline itself had NOT yet been launched at the time this policy was
 frozen.**
+
+## 21. InputNorm-only extension (implementation candidate, 16 October 2026)
+
+The reviewed design adds optional observation normalization to 8x256 SAC. See
+`INPUTNORM_ABLATION.md` for its exact estimator, inference/checkpoint contract and
+manual validation/launch gates. This is a deliberate controlled intervention:
+the default disabled path preserves legacy learning and network state dictionaries.
+Enabled checkpoints additionally save versioned running moments; evaluation uses
+independent frozen snapshots. Resolved config gains `input_norm` and enabled-run
+metadata gains a normalization summary. Existing CSV schemas, schedules, dependencies,
+GPU assignment and historical artifacts remain unchanged. Exact training resumption
+is still unsupported. No scientific launch is authorized by this documentation;
+local CPU tests do not establish server CUDA readiness.

@@ -17,6 +17,7 @@ from gymnasium.spaces import Box
 from torch.optim import Adam
 
 from src.networks import HIDDEN_DEPTH, HIDDEN_SIZE, Actor, QNetwork
+from src.observation_normalization import ObservationNormalizer
 from src.replay_buffer import Batch
 
 
@@ -54,10 +55,16 @@ class SACAgent:
         q_lr: float = 1e-3,
         hidden_width: int = HIDDEN_SIZE,
         hidden_depth: int = HIDDEN_DEPTH,
+        input_norm: bool = False,
     ) -> None:
         self.device = torch.device(device)
         self.gamma = gamma
         self.tau = tau
+        if type(input_norm) is not bool:
+            raise ValueError("input_norm must be a bool")
+        self.observation_normalizer = (
+            ObservationNormalizer(int(observation_space.shape[0]), self.device) if input_norm else None
+        )
 
         self.actor = Actor(observation_space, action_space, hidden_width, hidden_depth).to(self.device)
         self.qf1 = QNetwork(observation_space, action_space, hidden_width, hidden_depth).to(self.device)
@@ -85,26 +92,35 @@ class SACAgent:
         """Current entropy coefficient (no gradient)."""
         return self.log_alpha.exp().detach()
 
+    def normalize_observation(self, obs: torch.Tensor) -> torch.Tensor:
+        """Raw observation -> network input. Pure; disabled path returns the input itself.
+        Low-level Actor/QNetwork interfaces accept network-ready observations.
+        """
+        return obs if self.observation_normalizer is None else self.observation_normalizer.transform(obs)
+
     def critic_loss(self, batch: Batch) -> torch.Tensor:
+        obs = self.normalize_observation(batch.obs)
+        next_obs = self.normalize_observation(batch.next_obs)
         with torch.no_grad():
-            next_action, next_log_prob = self.actor.get_action(batch.next_obs)
+            next_action, next_log_prob = self.actor.get_action(next_obs)
             min_q_next = torch.min(
-                self.qf1_target(batch.next_obs, next_action),
-                self.qf2_target(batch.next_obs, next_action),
+                self.qf1_target(next_obs, next_action),
+                self.qf2_target(next_obs, next_action),
             )
             # The ONLY place episode endings enter the target. Only true terminations
             # cut the bootstrap; time-limit truncations still bootstrap from next_obs.
             mask = 1.0 - batch.terminations
             target_q = batch.rewards + self.gamma * mask * (min_q_next - self.alpha * next_log_prob)
-        return F.mse_loss(self.qf1(batch.obs, batch.actions), target_q) + F.mse_loss(
-            self.qf2(batch.obs, batch.actions), target_q
+        return F.mse_loss(self.qf1(obs, batch.actions), target_q) + F.mse_loss(
+            self.qf2(obs, batch.actions), target_q
         )
 
     def actor_loss(self, batch: Batch) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns (actor loss, log_pi). Only actor_optimizer steps on this loss;
         gradients that also reach the critics are ignored (never stepped)."""
-        action, log_pi = self.actor.get_action(batch.obs)
-        min_q = torch.min(self.qf1(batch.obs, action), self.qf2(batch.obs, action))
+        obs = self.normalize_observation(batch.obs)
+        action, log_pi = self.actor.get_action(obs)
+        min_q = torch.min(self.qf1(obs, action), self.qf2(obs, action))
         return (self.alpha * log_pi - min_q).mean(), log_pi
 
     def alpha_loss(self, log_pi: torch.Tensor) -> torch.Tensor:
@@ -120,8 +136,9 @@ class SACAgent:
         if diagnostics:
             self.diagnostics["critic_grad_norm"] = grad_norm([*self.qf1.parameters(), *self.qf2.parameters()])
             with torch.no_grad():
-                q1 = self.qf1(batch.obs, batch.actions).abs().mean()
-                q2 = self.qf2(batch.obs, batch.actions).abs().mean()
+                obs = self.normalize_observation(batch.obs)
+                q1 = self.qf1(obs, batch.actions).abs().mean()
+                q2 = self.qf2(obs, batch.actions).abs().mean()
             self.diagnostics["q_mean_abs"] = (0.5 * (q1 + q2)).item()
         self.critic_optimizer.step()
         return loss.item()
@@ -138,7 +155,7 @@ class SACAgent:
 
         # Alpha uses a fresh log_pi from the just-updated policy (no gradient).
         with torch.no_grad():
-            _, log_pi = self.actor.get_action(batch.obs)
+            _, log_pi = self.actor.get_action(self.normalize_observation(batch.obs))
         alpha_loss = self.alpha_loss(log_pi)
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()

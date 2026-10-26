@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 from src.networks import Actor
+from src.observation_normalization import FrozenObservationTransform
 
 
 @dataclass
@@ -21,6 +22,8 @@ def evaluate(
     num_episodes: int,
     seed: int,
     device: torch.device | str = "cpu",
+    *,
+    observation_transform: FrozenObservationTransform | None = None,
 ) -> EvalResult:
     """Run `num_episodes` with the deterministic (squashed-mean) action.
 
@@ -37,6 +40,8 @@ def evaluate(
             episode_return, done = 0.0, False
             while not done:
                 obs_t = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
+                if observation_transform is not None:
+                    obs_t = observation_transform.transform(obs_t)
                 action = actor.get_deterministic_action(obs_t)[0].cpu().numpy()
                 obs, reward, terminated, truncated, _ = env.step(action)
                 episode_return += float(reward)

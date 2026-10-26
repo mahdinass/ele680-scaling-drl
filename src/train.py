@@ -55,6 +55,7 @@ class TrainConfig:
     log_interval: int = 1_000  # train-metric row every log_interval env steps; 0 disables
     checkpoint_interval: int = 0  # periodic checkpoint every N steps; 0 = final only
     tensorboard: bool = True
+    input_norm: bool = False  # appended: preserve historical positional config arguments
 
 
 @dataclass
@@ -111,6 +112,7 @@ def _train(
     agent = SACAgent(
         obs_space, act_space, device, config.gamma, config.tau, config.policy_lr, config.q_lr,
         config.hidden_width, config.hidden_depth,
+        input_norm=config.input_norm,
     )
     rb = ReplayBuffer(
         config.buffer_size,
@@ -120,18 +122,23 @@ def _train(
         seed=config.seed,
     )
     result = TrainResult(agent=agent, replay_buffer=rb)
+    normalizer = agent.observation_normalizer
     if logger is not None:
         logger.update_metadata(
             parameter_counts=count_parameters(agent),
             observation_shape=list(obs_space.shape),
             action_shape=list(act_space.shape),
         )
+        if normalizer is not None:
+            logger.update_metadata(input_normalization=normalizer.summary())
 
     obs, _ = train_env.reset(seed=config.seed)  # explicit seed on the first reset only
     episode_return, episode_length = 0.0, 0
 
     for global_step in range(config.total_steps):
         steps_completed = global_step + 1  # every logged `step` means "env steps completed"
+        if normalizer is not None:
+            normalizer.update(obs)  # exactly once per decision state, including random warm-up
 
         # 1. Action: random during warm-up, policy afterwards (CleanRL: step < learning_starts).
         if global_step < config.learning_starts:
@@ -140,7 +147,7 @@ def _train(
         else:
             with torch.no_grad():
                 obs_t = torch.as_tensor(obs, dtype=torch.float32, device=device).unsqueeze(0)
-                action = agent.actor.get_action(obs_t)[0][0].cpu().numpy()
+                action = agent.actor.get_action(agent.normalize_observation(obs_t))[0][0].cpu().numpy()
             result.num_policy_actions += 1
 
         # 2. Step. Non-vectorized Gymnasium returns the TRUE next observation even on
@@ -205,7 +212,8 @@ def _train(
 
         # 5. Periodic deterministic evaluation on the separate eval env.
         if config.eval_interval > 0 and steps_completed % config.eval_interval == 0:
-            eval_result = evaluate(agent.actor, eval_env, config.eval_episodes, eval_seed, device)
+            eval_kwargs = {} if normalizer is None else {"observation_transform": normalizer.snapshot()}
+            eval_result = evaluate(agent.actor, eval_env, config.eval_episodes, eval_seed, device, **eval_kwargs)
             result.eval_results.append((steps_completed, eval_result))
             if logger is not None:
                 logger.log_eval(steps_completed, eval_result, "periodic")
@@ -218,9 +226,13 @@ def _train(
     if logger is not None:
         save_checkpoint(logger.checkpoint_path, agent, result.steps_completed, config, config.seed)
     if config.final_eval_episodes > 0:
-        result.final_eval = evaluate(agent.actor, eval_env, config.final_eval_episodes, eval_seed, device)
+        eval_kwargs = {} if normalizer is None else {"observation_transform": normalizer.snapshot()}
+        result.final_eval = evaluate(agent.actor, eval_env, config.final_eval_episodes, eval_seed, device, **eval_kwargs)
         if logger is not None:
             logger.log_eval(result.steps_completed, result.final_eval, "final")
+
+    if normalizer is not None and logger is not None:
+        logger.update_metadata(input_normalization=normalizer.summary())
 
     return result
 
