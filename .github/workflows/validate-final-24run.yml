@@ -1,0 +1,24 @@
+name: Validate recorded 24-run summaries
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-summaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify syntax
+        run: python -m py_compile analysis/final_24run_reproduce.py
+      - name: Verify archived 24-run means and sample SD
+        run: python analysis/final_24run_reproduce.py verify-bundled
