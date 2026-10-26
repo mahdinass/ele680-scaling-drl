@@ -3,6 +3,11 @@
 Adapted from the ideas in CleanRL's `sac_continuous_action.py`: ReLU MLPs,
 tanh-bounded log_std, tanh-squashed Gaussian actor with action scale/bias,
 and the tanh change-of-variables correction to the log-probability.
+
+Optional single-layer identity shortcuts use the ELE680 residual-only protocol:
+ReLU(Wx + b + x), after the unchanged first projection. Conceptual attribution:
+He et al., Deep Residual Learning for Image Recognition, arXiv:1512.03385.
+No external residual implementation is copied; this is not the full ResNet/SimBa.
 """
 
 import numbers
@@ -17,6 +22,12 @@ HIDDEN_SIZE = 256  # default hidden width (the frozen 2x256 baseline)
 HIDDEN_DEPTH = 2  # default number of hidden layers (the frozen 2x256 baseline)
 LOG_STD_MIN = -5.0
 LOG_STD_MAX = 2.0
+
+
+def _check_residual_connections(value: bool) -> bool:
+    if type(value) is not bool:
+        raise ValueError("residual_connections must be a bool")
+    return value
 
 
 def _check_width(hidden_width: int) -> int:
@@ -50,8 +61,10 @@ class QNetwork(nn.Module):
         action_space: Box,
         hidden_width: int = HIDDEN_SIZE,
         hidden_depth: int = HIDDEN_DEPTH,
+        residual_connections: bool = False,
     ) -> None:
         super().__init__()
+        self.residual_connections = _check_residual_connections(residual_connections)
         hidden_width = _check_width(hidden_width)
         hidden_depth = _check_depth(hidden_depth)
         obs_dim = int(np.prod(observation_space.shape))
@@ -65,9 +78,9 @@ class QNetwork(nn.Module):
         """obs: (B, obs_dim), action: (B, act_dim) -> Q-values (B, 1)."""
         x = torch.cat([obs, action], dim=1)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc2(x) + x) if self.residual_connections else F.relu(self.fc2(x))
         for layer in self.hidden_extra:
-            x = F.relu(layer(x))
+            x = F.relu(layer(x) + x) if self.residual_connections else F.relu(layer(x))
         return self.fc3(x)
 
 
@@ -80,8 +93,10 @@ class Actor(nn.Module):
         action_space: Box,
         hidden_width: int = HIDDEN_SIZE,
         hidden_depth: int = HIDDEN_DEPTH,
+        residual_connections: bool = False,
     ) -> None:
         super().__init__()
+        self.residual_connections = _check_residual_connections(residual_connections)
         hidden_width = _check_width(hidden_width)
         hidden_depth = _check_depth(hidden_depth)
         obs_dim = int(np.prod(observation_space.shape))
@@ -102,9 +117,9 @@ class Actor(nn.Module):
     def forward(self, obs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """obs (B, obs_dim) -> Gaussian mean and log_std, each (B, act_dim)."""
         x = F.relu(self.fc1(obs))
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc2(x) + x) if self.residual_connections else F.relu(self.fc2(x))
         for layer in self.hidden_extra:
-            x = F.relu(layer(x))
+            x = F.relu(layer(x) + x) if self.residual_connections else F.relu(layer(x))
         mean = self.fc_mean(x)
         # Bound log_std smoothly: tanh -> (-1, 1) -> rescale to (LOG_STD_MIN, LOG_STD_MAX).
         log_std = torch.tanh(self.fc_logstd(x))
