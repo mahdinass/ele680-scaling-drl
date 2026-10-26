@@ -1,142 +1,89 @@
-﻿# ELE680 — Scaling Up Networks in Deep Reinforcement Learning
+# ELE680 — Scaling Up Networks in Deep Reinforcement Learning
 
-Deep Reinforcement Learning project for ELE680.
+**Group 1: Mahdi Nasser and Malvin Varpe** · University of Stavanger, ELE680 (2026)
 
-Team:
-- Mahdi Nasser
-- Malvin Varpe
+## Final project status
 
-## Setup
+**Completed:** 24 independently trained SAC runs on Gymnasium HalfCheetah-v5 (8 architecture conditions × seeds 0,1,2 × 1,000,000 environment steps). All completed runs passed the independent **artifact audits**. The LayerNorm seeds 1 and 2 **did not meet the originally strict exclusive-GPU monitoring rule**: a separate, documented exception runner exited nonzero after recording overlapping third-party CUDA processes, despite successful training and original artifact audits. These runs are included with explicit qualification; we do not claim unaffected GPU timing or improved/damaged return.
 
-Requires **Python 3.12**.
+The companion LaTeX report is at https://github.com/mahdinass/ele680-drl-report . The training code, scripts, original configs and per-run tests live here. Original historical scientific commits have been retained in Git history, including by merging the original three stacked architecture PRs (#1/#2/#3) without squash.
 
-### Gorina4 (UiS)
+## Install and basic checks
 
-```bash
-uenv miniconda3-py312
-conda activate /bhome/u273406/conda-envs/ele680
+Use Python 3.12. For UiS Gorina4, use the assigned module and project environment; to reproduce in a fresh compatible environment:
+
+~~~bash
 python -m pip install -r requirements/gorina4.txt
-```
+python -m unittest discover -s tests -t . -v
+~~~
 
-`requirements/base.txt` holds the portable dependencies; `requirements/gorina4.txt` adds the CUDA 12.1 build of PyTorch (`torch==2.5.1+cu121`) from the official PyTorch wheel index.
+`requirements/base.txt` contains portable dependencies; `requirements/gorina4.txt` pins the recorded CUDA PyTorch build. Local CPU hosts can run the CPU tests; CUDA tests require CUDA hardware and are skipped when unavailable. For a quick environment smoke test:
 
-Group 1 uses **physical GPU 0** (Tesla P100). Run jobs with `CUDA_VISIBLE_DEVICES=0`, e.g.:
+~~~bash
+python -c "import gymnasium as gym; e=gym.make('HalfCheetah-v5'); e.reset(seed=0); e.step(e.action_space.sample()); e.close(); print('MuJoCo OK')"
+~~~
 
-```bash
-CUDA_VISIBLE_DEVICES=0 python <script>.py
-```
+Do not assume GPU 0 is yours on another machine: `CUDA_VISIBLE_DEVICES=0` selects the first physically visible device and was specifically the assigned P100 on Gorina4. Ask the administrator for an exclusive allocation before launching a million-step experiment. Do not defeat the original per-run hardware gates or kill another user's process.
 
-### Smoke test
+## Experimental matrix
 
-```bash
-CUDA_VISIBLE_DEVICES=0 python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
-python -c "import gymnasium as gym; e = gym.make('HalfCheetah-v5'); e.reset(seed=0); e.step(e.action_space.sample()); print('ok')"
-```
+| Condition | JSON config | Original scientific code SHA |
+|---|---|---|
+| 2×256 | `configs/baseline.json` | `1a9f2405b5fdb9cffa379b72f569a0a3a01515e4` |
+| 2×512 | `configs/width_2x512.json` | `f25b3a0cb93da0a605b3dbac6254a866f83f664e` |
+| 2×1024 | `configs/width_2x1024.json` | `e533a3c76ef069ffe37affc9a6a15ea2b1ae2e14` |
+| 4×256 | `configs/depth_4x256.json` | `6c674babc344e62566692e1a4fcf3611dc53a6cc` |
+| 8×256 naive | `configs/depth_8x256.json` | `6c674babc344e62566692e1a4fcf3611dc53a6cc` |
+| 8×256 InputNorm **only** | `configs/ablation_inputnorm_8x256.json` | `689dbee26af0ab44957bd17dafc7435d8f4a6109` |
+| 8×256 Residual **only** | `configs/ablation_residual_8x256.json` | `41ffb94d03472a5ebc81b4d39fdf9c59bfbe6609` |
+| 8×256 LayerNorm **only** | `configs/ablation_layernorm_8x256.json` | `3a53be9ed5d68e7572e78a83dbdb0d0b7496f8e2` |
 
-Expected: `2.5.1+cu121 True` and `ok`.
+For every condition, **three independent training seeds** 0/1/2, 1M steps, periodic deterministic evaluation of five episodes every 25k and separate ten-episode final evaluation. The 2×256 baseline is counted once despite appearing in both width and depth comparisons. No preflights enter the scientific results.
 
-### Git on Gorina4
+## Repeat all 24 experiments (dry-run command plan)
 
-Perform Git operations from a **fresh Gorina4 shell before loading the UiS
-Miniconda environment or activating Conda**.
+~~~bash
+python analysis/final_24run_reproduce.py verify-bundled
+python analysis/final_24run_reproduce.py plan > reproduce_24_commands.sh
+~~~
 
-The UiS `miniconda3-py312` environment can alter shared-library resolution and
-cause system Git/SSH to fail with an OpenSSL version mismatch, for example:
+`plan` prints, but **never executes**, 24 exact-commit checkout + training commands, one for each manifest row. Inspect `reproduce_24_commands.sh` before use. It uses new `REPRO_...` IDs and a separate results directory. Training is never started by the analyzer. Run only sequentially on an allocated GPU and ideally in a clean clone, with the required environment already installed. Different PyTorch/GPU/driver versions and stochastic RL produce different numerical trajectories despite matching seeds; reproducibility means recreating the procedure, not promising byte-identical rewards.
 
-```text
-OpenSSL version mismatch. Built against 30000020, you have 30300010
-```
+To start **one** experiment from the appropriate historical source revision (example uses the current merged implementation; for exact historical execution, switch to the SHA in the matrix):
 
-### Activating the project environment
+~~~bash
+CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/ablation_inputnorm_8x256.json --seed 0 --device cuda --output-dir results_reproduced --run-id REPRO_InputNorm_seed0
+~~~
 
-Every new Gorina4 shell:
+Do not reuse the original run IDs or overwrite original output folders. The historical per-architecture control scripts and exact-SHA gates remain at `scripts/` and `docs/`, but some require the unchanged frozen scientific commit rather than today's merged `main` commit. Follow the original gate documentation when repeating historically identical runs.
 
-```bash
-uenv miniconda3-py312
-conda activate /bhome/u273406/conda-envs/ele680
-```
+## Validate original results and regenerate plots without GPU
 
-### Experiment infrastructure policy
+Original completed experiments produce distinct folders `results/<run_id>/` with `config.json`, `metadata.json`, `status.json`, `checkpoint.pt`, `train_metrics.csv`, `episode_metrics.csv`, `eval_metrics.csv` and TensorBoard logs. Checkpoints do *not* capture replay buffer, environment state or RNG, so they are not sufficient to resume exactly. Raw 24-run folders are large (~740 MB) and are excluded from Git; our original archived copy is separate.
 
-The canonical rules for reproducible ELE680 experiments are documented in
-[`docs/EXPERIMENT_INFRASTRUCTURE_POLICY.md`](docs/EXPERIMENT_INFRASTRUCTURE_POLICY.md).
+This repository includes **three versioned, measured secondary-summary CSVs** (not fabricated metrics) in `analysis/data/final_24run/`:
 
-## Running the tests
+- `run_inventory.csv`: all 24 exact run IDs, commits, seed scores, runtime, deviation flags.
+- `learning_curves.csv`: all 8×40 periodic checkpoints, per-seed 5-episode means and across-seed mean/sample SD.
+- `final_summary.csv`: 3-seed final means and sample SD.
 
-From the repository root, with the project environment active (the suite includes a short real `HalfCheetah-v5` run and CUDA smoke tests, and should take well under a minute):
+Run these without a GPU:
 
-```bash
-CUDA_VISIBLE_DEVICES=0 python -m unittest discover -s tests -v
-```
+~~~bash
+python analysis/final_24run_reproduce.py verify-bundled
+python analysis/final_24run_reproduce.py plots --output-dir analysis/generated/final_24run
+~~~
 
-## Running an experiment
+The second command requires Matplotlib and generates separate width, depth and deep-component mean ± **between-training-seed sample SD** learning curves. Plotting never changes the frozen source CSVs. For full independent verification after copying/unpacking the original run directories into this repository's `results/`:
 
-Experiments are launched from a JSON config plus optional overrides:
+~~~bash
+python analysis/final_24run_reproduce.py verify-raw --results-root results
+~~~
 
-```bash
-CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json \
-    --seed 0 --device cuda --output-dir results
-```
+This secondary checker does not replace the historical frozen code's original full auditor. See `docs/FINAL_STUDY_REPRODUCIBILITY.md` for the original artifact and analysis provenance, archive and GPU limitations.
 
-Overridable flags: `--seed`, `--device`, `--total-steps`, `--output-dir`, `--run-id` (all other settings come from the config file). `CUDA_VISIBLE_DEVICES=0` selects physical GPU 0, our assigned GPU; `--device cuda` then means "that GPU", and the code never hardcodes a GPU index. To keep a console log, redirect output yourself, e.g. `... 2>&1 | tee train.log`.
+## Experimental design and source acknowledgments
 
-> **Warning:** `configs/baseline.json` is the full **scientific baseline** (1,000,000 steps, 1,000,000-transition replay buffer, evaluations every 25,000 steps). Do not launch it by accident. For a quick check of the launcher use a tiny run, for example:
->
-> ```bash
-> CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json \
->     --total-steps 300 --output-dir /tmp/ele680_smoke --run-id smoke
-> ```
->
-> (With the baseline config this still performs the final 10-episode evaluation, i.e. 10 x 1000 environment steps.)
+SAC itself is from Haarnoja et al. (ICML 2018). The squashed-Gaussian actor, twin Q critics and update schedules were **guided by** the CleanRL `sac_continuous_action.py` reference. The network modifications are literature-motivated: He et al. for residual connections, Ba et al. for LayerNorm and Lee et al. (SimBa, ICLR 2025) for the broader scaling design. The method is not claimed as a new RL algorithm or a literal SimBa reproduction. Source URLs, contributions and adapted ideas are itemized in `docs/SOURCE_ATTRIBUTION.md`. Check source originality and licensing when reusing code outside this course; no statement here substitutes for a line-by-line plagiarism review.
 
-### Where results are written
-
-Each run gets its own directory `results/<run_id>/` (the default run id is `<env>_seed<seed>_<UTC timestamp>_<4 hex>`; an existing directory is never overwritten). `results/` is git-ignored.
-
-| File | Content |
-|---|---|
-| `config.json` | the full config used (with the resolved `run_id`) |
-| `metadata.json` | run id, status, start/end time, runtime, git commit (+ dirty flag), Python/PyTorch/CUDA/Gymnasium/MuJoCo versions, GPU name, env id, seed, device, config, parameter counts, checkpoint path, final evaluation |
-| `status.json` | quick look: `running` / `completed` / `failed` (+ failure type and message) |
-| `train_metrics.csv` | every `log_interval` steps: losses, alpha, mean abs Q, actor/critic gradient norms, elapsed time, steps per second |
-| `episode_metrics.csv` | one row per finished training episode: return and length |
-| `eval_metrics.csv` | one row per evaluation (`periodic` / `final`): number of episodes, mean, std, per-episode returns |
-| `checkpoint.pt` | latest checkpoint (networks, targets, optimizers, `log_alpha`, step, config, seed) |
-| `tensorboard/` | TensorBoard event files (convenience only) |
-
-The CSV/JSON files are the source of truth; TensorBoard is only a viewer (`tensorboard --logdir results`). All `step` columns mean "environment steps completed". Actor columns in `train_metrics.csv` are blank on rows where no actor update happened.
-
-Checkpoints do **not** include the replay buffer or RNG states, so they are for inspection/evaluation, not exact training resumption (yet).
-
-## InputNorm ablation candidate
-
-The 8x256 InputNorm-only implementation and manual Gorina4 validation procedure
-are documented in [docs/INPUTNORM_ABLATION.md](docs/INPUTNORM_ABLATION.md).
-Local verification is recorded in
-[docs/INPUTNORM_LOCAL_VALIDATION.md](docs/INPUTNORM_LOCAL_VALIDATION.md).
-Scientific InputNorm results are not yet available; server preflights remain required.
-
-## Residual-only 8x256 implementation
-
-The isolated residual-only design, checkpoint semantics and manual Gorina4 gates
-are in [docs/RESIDUAL_ABLATION.md](docs/RESIDUAL_ABLATION.md), with actual local
-test evidence in [docs/RESIDUAL_LOCAL_VALIDATION.md](docs/RESIDUAL_LOCAL_VALIDATION.md).
-This branch is stacked on frozen InputNorm commit
-`689dbee26af0ab44957bd17dafc7435d8f4a6109` (open PR #1), while its new experiment
-disables InputNorm. Readiness is **CODE REVIEW ONLY**; server validation and
-residual scientific results remain pending. The earlier InputNorm candidate
-status above is historical; the latest Notion milestones record its completed
-three-seed study.
-
-## LayerNorm-only 8x256 implementation
-
-The final required ablation is implemented on `codex/layernorm-8x256`, stacked
-on exact reviewed Residual source `41ffb94d03472a5ebc81b4d39fdf9c59bfbe6609`.
-See [docs/LAYERNORM_ABLATION.md](docs/LAYERNORM_ABLATION.md) for architecture,
-compatibility and the manual exact-commit validation workflow, and
-[docs/LAYERNORM_LOCAL_VALIDATION.md](docs/LAYERNORM_LOCAL_VALIDATION.md) for local
-evidence. **Code-review candidate only:** no LayerNorm server validation,
-preflight or scientific training has been performed by this task. Latest
-user-verified status (20 October): 21/24 scientific runs audited, including all
-InputNorm and Residual seeds; only LayerNorm seeds 0/1/2 remain. Earlier candidate
-status text is historical. Defer comparisons until LayerNorm science completes.
+The measured study is a **shared Group 1 submission by Mahdi Nasser and Malvin Varpe**. This repository does not infer each individual's personal contribution; both members should confirm a truthful division for oral assessment. The report discusses our critical interpretation without attributing unverified tasks to either member.
