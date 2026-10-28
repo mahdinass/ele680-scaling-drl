@@ -1,5 +1,32 @@
 ﻿# ELE680 Experiment Results
 
+## Complete 24-run study
+
+The final study contains eight conditions and three seeds per condition. Its
+authoritative summary data are in [`data/final_24run/`](data/final_24run/); the
+[final scientific status](../docs/FINAL_STUDY_REPRODUCIBILITY.md) records provenance,
+limitations, and the GPU-overlap qualification for two LayerNorm seeds. The baseline
+and width sections below describe the earlier analysis stages.
+
+From the repository root, with Python 3.12 in an activated virtual environment:
+
+```bash
+python -m pip install -r requirements/analysis.txt
+python -m unittest discover -s analysis/tests -v
+python analysis/final_24run_reproduce.py verify-bundled
+python analysis/final_24run_reproduce.py plots --output-dir analysis/generated/final_24run
+python analysis/plot_width_comparison.py analysis/generated/width_comparison
+```
+
+These commands use tracked CSV/JSON data and need no GPU or PyTorch. Generated
+figures are written under the ignored `analysis/generated/` directory. The original
+baseline script has a fixed output directory; to regenerate its figures without
+overwriting the tracked originals, override that output in the current process:
+
+```bash
+python -c "from pathlib import Path; import analysis.plot_baseline as p; p.OUT=Path('analysis/generated/baseline'); p.main()"
+```
+
 ## Baseline: SAC on HalfCheetah-v5
 
 Architecture: 2 hidden layers, 256 units per layer.
@@ -40,9 +67,9 @@ training seeds, not variation between evaluation episodes.
 Baseline Git commit:
 1a9f2405b5fdb9cffa379b72f569a0a3a01515e4
 
-The original complete run directories, including PyTorch
-checkpoints and TensorBoard files, remain on Gorina4
-under /bhome/u273406/ele680-scaling-drl/results/.
+The complete original run directories, including PyTorch checkpoints and
+TensorBoard files, are archived separately by the group. They are available to
+assessors on request; server access is not required for the tracked analyses.
 
 This directory contains copies of the scientific CSV/JSON
 artifacts for analysis and reproducibility.
@@ -52,10 +79,10 @@ artifacts for analysis and reproducibility.
 Reproducible three-architecture comparison, generated from the tracked copies
 under `analysis/data/` (`baseline/`, `width_2x512/`, `width_2x1024/`):
 
-    .\.venv\Scripts\python.exe analysis\plot_width_comparison.py [OUT_DIR] [--no-figures]
-    .\.venv\Scripts\python.exe -m unittest discover -s analysis/tests -v
+    python analysis/plot_width_comparison.py analysis/generated/width_comparison [--no-figures]
+    python -m unittest discover -s analysis/tests -v
 
-Outputs are written to `analysis/figures/width_comparison/` (figures 01-08 as PNG
+The command above writes to `analysis/generated/width_comparison/` (figures 01-08 as PNG
 and PDF, five CSV/JSON/Markdown files); `width_comparison_summary.md` is the report.
 The three architectures were trained at different Git commits (see the report).
 All standard deviations across training seeds are sample SDs (ddof=1, n=3);

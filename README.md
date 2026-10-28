@@ -5,7 +5,12 @@
 
 This project investigates how **network width, depth, and architectural components** affect Soft Actor-Critic (SAC) on the continuous-control **HalfCheetah-v5** task. We trained eight actor–critic architecture conditions across three independent seeds each, for **24 one-million-step experiments**. The goal was a controlled empirical comparison—not a new reinforcement-learning algorithm or a reproduction of the full SimBa architecture.
 
-The repository contains the training implementation, experiment configurations, tests, recorded summary data, and scripts for independently checking the reported results. The [companion LaTeX report](https://github.com/mahdinass/ele680-drl-report) contains the full methodology and discussion (access is required while that repository remains private).
+The repository contains the training implementation, experiment configurations, tests, recorded summary data, and scripts for independently checking the reported results.
+
+**Final report:** being finalized by the authors. The PDF will be added at `docs/ELE680_Final_Report.pdf`.
+<!-- When the final PDF is committed, replace the sentence above with:
+**Final report:** [ELE680 Final Report (PDF)](docs/ELE680_Final_Report.pdf)
+-->
 
 ## Results at a glance
 
@@ -44,12 +49,22 @@ Historical validation documents are retained for provenance. The final outcome a
 
 ## Set up and validate
 
-Use **Python 3.12**. Create and activate a virtual environment first. On a CPU machine, install the portable dependencies and a compatible CPU PyTorch build:
+Use **Python 3.12** and run commands from the repository root. Clone the full history and create an isolated environment:
 
 ```bash
-python -m pip install -r requirements/base.txt
+git clone https://github.com/mahdinass/ele680-scaling-drl.git
+cd ele680-scaling-drl
+python -m venv .venv
+```
+
+Activate it with `source .venv/bin/activate` on Linux/macOS, or `.venv\Scripts\Activate.ps1` in Windows PowerShell. On a CPU machine, install the verification dependencies (including the recorded MuJoCo version) and CPU PyTorch:
+
+```bash
+python -m pip install -r requirements/cpu.txt -r requirements/analysis.txt
 python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+python -m pip check
 python -m unittest discover -s tests -t . -v
+python -m unittest discover -s analysis/tests -v
 ```
 
 The original Gorina4 CUDA environment used `requirements/gorina4.txt` and an assigned Tesla P100; this specification is **not** a general-purpose CPU installation command. Tests requiring CUDA are skipped on CPU-only machines. Some historical source-compatibility tests require the full Git history, so clone normally rather than using a shallow checkout.
@@ -64,7 +79,6 @@ python -c "import gymnasium as gym; e=gym.make('HalfCheetah-v5'); e.reset(seed=0
 
 ```bash
 python analysis/final_24run_reproduce.py verify-bundled
-python -m pip install matplotlib
 python analysis/final_24run_reproduce.py plots --output-dir analysis/generated/final_24run
 ```
 
@@ -77,6 +91,8 @@ python analysis/final_24run_reproduce.py verify-raw --results-root results
 ```
 
 The full raw run folders (including checkpoints and TensorBoard logs) are deliberately not committed to Git. The original 24-run archive is held separately by the group and can be provided to an assessor on request; it is not available for anonymous download from this repository. See the [reproducibility record](docs/FINAL_STUDY_REPRODUCIBILITY.md) for checks, provenance, and archive details.
+
+The [analysis guide](analysis/README.md) gives commands for regenerating the baseline and width figures. See the [publication verification record](docs/PUBLICATION_VERIFICATION.md) for the checked environment, test results, security-audit scope, and remaining reproducibility limits.
 
 ### Repeat training (allocated GPU required)
 
@@ -94,7 +110,11 @@ CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json --seed
 
 Do not reuse the original run IDs or overwrite scientific artifacts. The original cluster runners under [`scripts/`](scripts/) may require their exact frozen historical source revision.
 
+For the historical plan, use a separate clean full clone for training and save the printed plan outside that checkout before its first revision switch: the helper is absent from the early source revisions. Keep its environment in `.venv/` and check `git status --porcelain` before each run. The plan writes new runs beneath `results/reproduced/`, which is ignored by every recorded revision; generated analysis files and custom environment names in a reused checkout can otherwise make historical run metadata report a dirty tree.
+
 ## Experimental design and source revisions
+
+The PyTorch implementation uses a tanh-squashed Gaussian actor, twin Q-functions with target networks, off-policy replay, Polyak target updates, and automatic entropy-temperature tuning. Width and depth are varied in both the actor and critics. The three deep-network ablations separately add running observation normalization, same-width residual shortcuts, or LayerNorm before hidden ReLU activations. They do not combine these components. See the [scientific procedure](docs/FINAL_STUDY_REPRODUCIBILITY.md) and [component protocols](docs/) for the exact semantics and shared hyperparameters.
 
 All conditions share the same SAC algorithm, training budget, evaluation schedule, and non-architecture hyperparameters. Periodic deterministic evaluation used five episodes every 25,000 steps; final evaluation used ten episodes. The baseline appears in both the width and depth comparisons but was trained **only three times**, not duplicated.
 

@@ -1,0 +1,4 @@
+# Portable verification environment matching the recorded simulator version.
+# Install torch==2.5.1 from the official CPU wheel index separately (see README).
+-r base.txt
+mujoco==3.15.0

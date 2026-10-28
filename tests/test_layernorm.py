@@ -247,8 +247,13 @@ class ArchitectureTests(EqualityMixin, unittest.TestCase):
         self._finite_updates("cpu")
 
     def test_per_sample_layernorm_has_no_running_statistics_or_batch_dependence(self):
-        net = Actor(*spaces(), hidden_depth=8, layer_norm=True)
-        obs = torch.randn(4, 17)
+        # Isolate the fixture from earlier tests' RNG consumption. Float32 GEMM
+        # roundoff differs between one-row and batched CPU kernels; keep the
+        # existing float32 assertions/tolerances and use a reproducible fixture.
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(0)
+            net = Actor(*spaces(), hidden_depth=8, layer_norm=True)
+            obs = torch.randn(4, 17)
         before = copy.deepcopy(net.state_dict())
         single = net(obs[:1])
         batch = net(torch.cat([obs[:1], obs[1:] * 100], dim=0))
@@ -258,6 +263,24 @@ class ArchitectureTests(EqualityMixin, unittest.TestCase):
         self.assert_nested_equal(single, net(obs[:1]))
         self.assert_nested_equal(before, net.state_dict())
         self.assertFalse(any("running" in key for key in net.state_dict()))
+
+    def test_per_sample_layernorm_batch_independence_float64_multiple_seeds(self):
+        # Also check the mathematical property at higher precision, where
+        # shape-dependent float32 accumulation cannot dominate near-zero heads.
+        for seed in (0, 1, 2):
+            with self.subTest(seed=seed), torch.random.fork_rng(devices=[]):
+                torch.manual_seed(seed)
+                net = Actor(*spaces(), hidden_depth=8, layer_norm=True).double()
+                obs = torch.randn(4, 17, dtype=torch.float64)
+                before = copy.deepcopy(net.state_dict())
+                single = net(obs[:1])
+                batch = net(torch.cat([obs[:1], obs[1:] * 100], dim=0))
+                for a, b in zip(single, batch):
+                    self.assertTrue(torch.allclose(a, b[:1], atol=1e-12, rtol=1e-11))
+                net.eval()
+                self.assert_nested_equal(single, net(obs[:1]))
+                self.assert_nested_equal(before, net.state_dict())
+                self.assertFalse(any("running" in key for key in net.state_dict()))
 
     @unittest.skipUnless(torch.cuda.is_available(), "CUDA unavailable locally")
     def test_cuda_forward_backward_checkpoint_optimizer_evaluation_and_training(self):

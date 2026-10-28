@@ -1,4 +1,4 @@
-name: Validate recorded 24-run summaries
+name: Validate study summaries and CPU tests
 
 on:
   push:
@@ -22,3 +22,34 @@ jobs:
         run: python -m py_compile analysis/final_24run_reproduce.py
       - name: Verify archived 24-run means and sample SD
         run: python analysis/final_24run_reproduce.py verify-bundled
+
+  cpu-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CUDA_VISIBLE_DEVICES: ''
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements/*.txt
+      - name: Install CPU verification and analysis dependencies
+        run: |
+          python -m pip install -r requirements/cpu.txt -r requirements/analysis.txt
+          python -m pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip check
+      - name: Check Python syntax
+        run: python -m compileall -q src tests scripts analysis
+      - name: Run complete CPU-compatible test suite
+        run: python -m unittest discover -s tests -t . -v
+      - name: Run analysis test suite
+        run: python -m unittest discover -s analysis/tests -v
+      - name: Regenerate final study figures
+        run: python analysis/final_24run_reproduce.py plots --output-dir analysis/generated/final_24run
