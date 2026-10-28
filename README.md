@@ -112,6 +112,8 @@ Do not reuse the original run IDs or overwrite scientific artifacts. The origina
 
 ## Experimental design and source revisions
 
+The PyTorch implementation uses a tanh-squashed Gaussian actor, twin Q-functions with target networks, off-policy replay, Polyak target updates, and automatic entropy-temperature tuning. Width and depth are varied in both the actor and critics. The three deep-network ablations separately add running observation normalization, same-width residual shortcuts, or LayerNorm before hidden ReLU activations. They do not combine these components. See the [scientific procedure](docs/FINAL_STUDY_REPRODUCIBILITY.md) and [component protocols](docs/) for the exact semantics and shared hyperparameters.
+
 All conditions share the same SAC algorithm, training budget, evaluation schedule, and non-architecture hyperparameters. Periodic deterministic evaluation used five episodes every 25,000 steps; final evaluation used ten episodes. The baseline appears in both the width and depth comparisons but was trained **only three times**, not duplicated.
 
 | Condition | Configuration | Recorded scientific source commit |

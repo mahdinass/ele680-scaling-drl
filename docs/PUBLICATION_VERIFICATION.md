@@ -18,6 +18,9 @@ record](FINAL_STUDY_REPRODUCIBILITY.md) or claim new training results.
   `40670673002`, `40668909088`, `40356880018`, `40356362921`, `40355627681`.
   All five runs succeeded; no credential leaks were found in their logs. The
   Actions artifact inventory was empty.
+- The cleanup PR's successful [Python 3.12 CI run](https://github.com/mahdinass/ele680-scaling-drl/actions/runs/40682207569)
+  was also downloaded and scanned without credential findings. The housekeeping
+  diff contains no authentication material.
 - Retained the historical infrastructure notes and original scientific metadata.
   The repository owner explicitly accepted disclosure of the hostnames and ordinary
   SSH commands; this is not a claim of separate institutional security approval.
@@ -38,14 +41,28 @@ and environments are excluded from publication. No Git history was rewritten.
 | :-- | :-- |
 | Historical reproduction plan | Passed: 24 commands, eight conditions × three seeds |
 | Exact source provenance | Passed: seven valid scientific commits, all ancestors of main; each configuration exists at its recorded commit, matches the current version, and supports the printed CLI options |
-| Python syntax | Pending final check |
-| Complete CPU-compatible unit suite | Pending final check |
-| Analysis suite | Pending final check |
-| Bundled 24-run arithmetic and identities | Pending final check |
-| Figure regeneration | Pending final check |
-| Documentation links and README paths | Pending final check |
-| Clean Python 3.12 dependency installation | Pending final check |
-| Cleanup PR CI | Pending final check |
+| Python syntax | Passed for all 37 Python source, test, script, and analysis files; also passed CI compileall |
+| Complete CPU-compatible unit suite | 214 discovered: 207 passed, seven CUDA tests skipped; zero failures/errors in clean Linux CI |
+| Analysis suite | All 115 passed in Linux CI and locally on Windows |
+| Bundled 24-run arithmetic and identities | Passed locally and in CI: all 24 runs and 320 periodic aggregate points |
+| Figure regeneration | Passed locally for final-study, baseline, and width plots: 19 PNG/PDF pairs plus summary tables, all under ignored analysis/generated/; original figures unchanged |
+| MuJoCo environment | HalfCheetah-v5 reset and one step passed locally; real-environment CPU smoke tests also passed in CI |
+| Documentation links and README paths | All active local Markdown links resolved; README command/config paths checked; the report path is explicitly pending and has no active link |
+| Clean Python 3.12 dependency installation | Passed from a fresh Linux Actions checkout using the documented requirements and official CPU PyTorch index; pip check reported no broken requirements |
+| Cleanup PR CI | Both independent summary verification and full CPU/analysis jobs passed |
+
+The clean CI environment was Ubuntu with Python **3.12.15**, PyTorch **2.5.1+cpu**,
+NumPy **1.26.4**, Gymnasium **1.1.1**, MuJoCo **3.15.0**, TensorBoard **2.18.0**,
+pandas **2.2.3**, Matplotlib **3.10.7**, and tabulate **0.9.0**. Direct analysis and
+simulator dependencies are pinned in the new verification requirements; these are
+not a complete transitive lockfile. The original training requirements and recorded
+environment metadata are preserved.
+
+The seven skipped tests cover CUDA evaluation, network placement, SAC updates,
+training smoke, and InputNorm/Residual/LayerNorm CUDA checkpoint paths. They were
+not counted as passes. An initial Windows sandbox run encountered temporary-file
+permission errors; a representative checkpoint test passed unchanged with writable
+temporary storage. The complete clean Linux run is the authoritative CPU result.
 
 The workflow retains the independent bundled-summary check and adds a full-history
 Python 3.12 CPU job for syntax, both test suites, dependency consistency, and final
