@@ -110,6 +110,8 @@ CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/baseline.json --seed
 
 Do not reuse the original run IDs or overwrite scientific artifacts. The original cluster runners under [`scripts/`](scripts/) may require their exact frozen historical source revision.
 
+For the historical plan, use a separate clean full clone for training and save the printed plan outside that checkout before its first revision switch: the helper is absent from the early source revisions. Keep its environment in `.venv/` and check `git status --porcelain` before each run. The plan writes new runs beneath `results/reproduced/`, which is ignored by every recorded revision; generated analysis files and custom environment names in a reused checkout can otherwise make historical run metadata report a dirty tree.
+
 ## Experimental design and source revisions
 
 The PyTorch implementation uses a tanh-squashed Gaussian actor, twin Q-functions with target networks, off-policy replay, Polyak target updates, and automatic entropy-temperature tuning. Width and depth are varied in both the actor and critics. The three deep-network ablations separately add running observation normalization, same-width residual shortcuts, or LayerNorm before hidden ReLU activations. They do not combine these components. See the [scientific procedure](docs/FINAL_STUDY_REPRODUCIBILITY.md) and [component protocols](docs/) for the exact semantics and shared hyperparameters.

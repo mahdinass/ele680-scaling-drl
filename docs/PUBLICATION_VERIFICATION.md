@@ -41,9 +41,9 @@ and environments are excluded from publication. No Git history was rewritten.
 | :-- | :-- |
 | Historical reproduction plan | Passed: 24 commands, eight conditions × three seeds |
 | Exact source provenance | Passed: seven valid scientific commits, all ancestors of main; each configuration exists at its recorded commit, matches the current version, and supports the printed CLI options |
-| Python syntax | Passed for all 37 Python source, test, script, and analysis files; also passed CI compileall |
-| Complete CPU-compatible unit suite | 214 discovered: 207 passed, seven CUDA tests skipped; zero failures/errors in clean Linux CI |
-| Analysis suite | All 115 passed in Linux CI and locally on Windows |
+| Python syntax | Passed for the source, test, script, and analysis files; CI compileall includes the added reproduction-plan test module (38 Python files total) |
+| Complete CPU-compatible unit suite | 215 discovered: 208 passed, seven CUDA tests skipped; zero failures/errors in the corrected clean Linux CI run |
+| Analysis suite | All 115 existing tests passed in Linux CI and locally on Windows; both added historical-plan regressions also passed locally, bringing CI discovery to 117 |
 | Bundled 24-run arithmetic and identities | Passed locally and in CI: all 24 runs and 320 periodic aggregate points |
 | Figure regeneration | Passed locally for final-study, baseline, and width plots: 19 PNG/PDF pairs plus summary tables, all under ignored analysis/generated/; original figures unchanged |
 | MuJoCo environment | HalfCheetah-v5 reset and one step passed locally; real-environment CPU smoke tests also passed in CI |
@@ -61,8 +61,30 @@ environment metadata are preserved.
 The seven skipped tests cover CUDA evaluation, network placement, SAC updates,
 training smoke, and InputNorm/Residual/LayerNorm CUDA checkpoint paths. They were
 not counted as passes. An initial Windows sandbox run encountered temporary-file
-permission errors; a representative checkpoint test passed unchanged with writable
-temporary storage. The complete clean Linux run is the authoritative CPU result.
+permission errors; the entire original suite then passed unchanged with writable
+temporary storage (207 passed, seven CUDA skips, Python 3.12.14). The clean local
+dependency installation also passed pip check on Python 3.12.5.
+
+### Verification issues found and addressed
+
+A second Linux run exposed an intermittent failure in the original LayerNorm
+per-sample/batch-independence test, which had passed in the first Linux run and on
+Windows. Its fixture consumed the global RNG without isolation. Float32 one-row
+and batched CPU kernels can accumulate differently near zero; a local 64-fixture
+probe found double-precision differences no larger than 4.5e-15. The test now uses
+an isolated fixed RNG seed. **Every original assertion and float32 tolerance is
+retained.** An additional three-seed float64 test checks the same property with
+1e-12 absolute / 1e-11 relative tolerance. The [corrected complete CI run](https://github.com/mahdinass/ele680-scaling-drl/actions/runs/40684198774)
+passed all 208 CPU tests with seven CUDA skips. This is a test-fixture correction,
+not a change to scientific LayerNorm code or recorded results.
+
+The historical command plan previously wrote to `results_reproduced/`, which the
+early source revisions did not ignore. It now uses `results/reproduced/` so newly
+created outputs do not by themselves mark historical run provenance as dirty.
+Two added regression checks validate all 24 printed commands against recorded
+source/configuration/CLI options and check that every source revision ignores the
+output root. The README calls for a separate clean training clone and saving the
+plan outside it before switching revisions. No training command was executed.
 
 The workflow retains the independent bundled-summary check and adds a full-history
 Python 3.12 CPU job for syntax, both test suites, dependency consistency, and final

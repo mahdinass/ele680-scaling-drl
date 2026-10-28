@@ -193,13 +193,15 @@ def plan():
     """Print only: never run jobs or change the checkout."""
     manifest = read_csv(DATA / "run_inventory.csv")
     print("# INFORMATIVE DRY RUN ONLY. Requires explicit GPU access and new run IDs.")
+    print("# Save this plan outside the checkout before switching historical revisions.")
+    print("# Use a separate clean training clone; keep its environment in .venv/.")
     for row in manifest:
         arch, seed, sha = row["architecture"], row["seed"], row["git_commit"]
         cfg = CONFIGS[arch]
         name = f"REPRO_{arch}_seed{seed}".replace("x", "x")
         print(f"git switch --detach {sha}")
         print(f"CUDA_VISIBLE_DEVICES=0 python -m src.train --config configs/{cfg}"
-              f" --seed {seed} --device cuda --run-id {name} --output-dir results_reproduced")
+              f" --seed {seed} --device cuda --run-id {name} --output-dir results/reproduced")
     print("# Run serially only with your assigned GPU and prior permission.")
     print("# For historical provenance, use EXACT recorded SHA, not just current main.")
 
