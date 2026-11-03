@@ -3,8 +3,10 @@
 ## CleanRL (SAC continuous-action reference)
 
 Project: https://github.com/vwxyzjn/cleanrl
-Reference file: https://github.com/vwxyzjn/cleanrl/blob/master/cleanrl/sac_continuous_action.py
-License: MIT — https://github.com/vwxyzjn/cleanrl/blob/master/LICENSE
+Reference file: https://github.com/vwxyzjn/cleanrl/blob/004f8a086a892a2a180f4dd332b90d83a968aa7a/cleanrl/sac_continuous_action.py
+License: MIT, with upstream notices - https://github.com/vwxyzjn/cleanrl/blob/004f8a086a892a2a180f4dd332b90d83a968aa7a/LICENSE
+
+The complete upstream CleanRL license record, including attribution and license notices for earlier SAC implementations used by CleanRL, is preserved verbatim at [licenses/CleanRL_LICENSE.txt](licenses/CleanRL_LICENSE.txt). Those are CleanRL's upstream source acknowledgments; the reference implementation directly consulted for ELE680 was CleanRL, not necessarily each upstream project.
 
 The ELE680 SAC actor and algorithm implementation were guided by this reference. A targeted source comparison on 26 October 2026 detected a three-line exact match in the tanh-squashed action/log-probability block of `src/networks.py` (the conceptual formula is also standard SAC); this is credited as CleanRL-derived or adapted code rather than presented as original mathematical novelty. The rest of the brief comparison found no identical three-line blocks over 90 characters in `src/sac_update.py`, `src/train.py`, `src/replay_buffer.py` or `src/evaluate.py`. This limited automated spot-check is **not** a comprehensive plagiarism certificate.
 
