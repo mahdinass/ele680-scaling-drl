@@ -7,10 +7,7 @@ This project investigates how **network width, depth, and architectural componen
 
 The repository contains the training implementation, experiment configurations, tests, recorded summary data, and scripts for independently checking the reported results.
 
-**Final report:** being finalized by the authors. The PDF will be added at `docs/ELE680_Final_Report.pdf`.
-<!-- When the final PDF is committed, replace the sentence above with:
-**Final report:** [ELE680 Final Report (PDF)](docs/ELE680_Final_Report.pdf)
--->
+**Final report:** [ELE680 Final Report (PDF)](docs/ele680_drl_report.pdf)
 
 ## Results at a glance
 
